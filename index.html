@@ -1126,9 +1126,9 @@ function IntakeForm({user,initialData,onDone}){
 
       {/* Nav */}
       <div className="nav-btns">
-        {step>0?<button className="btn-outline" onClick={()=>setStep(s=>s-1)}>← Back</button>:<div/>}
+        {step>0?<button className="btn-outline" onClick={()=>{setStep(s=>s-1);window.scrollTo({top:0,behavior:'smooth'});}}>← Back</button>:<div/>}
         {step<STEP_LABELS.length-1
-          ?<button className="btn-gold" onClick={()=>setStep(s=>s+1)}>Continue →</button>
+          ?<button className="btn-gold" onClick={()=>{setStep(s=>s+1);window.scrollTo({top:0,behavior:'smooth'});}}>Continue →</button>
           :<button className="btn-gold" style={{padding:'13px 36px',fontSize:'15px'}} onClick={()=>onDone(data)}>Generate My Deck 🚀</button>
         }
       </div>
