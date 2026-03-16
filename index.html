@@ -9,6 +9,7 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
@@ -133,6 +134,7 @@ input[type=range]:focus{box-shadow:none;border:none}
 .review-row .val{color:var(--cream);text-align:right;max-width:58%;word-break:break-word}
 .notification{position:fixed;bottom:28px;right:28px;background:var(--navy2);border:1px solid var(--gold);border-radius:12px;padding:14px 22px;font-size:14px;color:var(--cream);z-index:300;animation:slideUp 0.3s ease;box-shadow:0 8px 32px rgba(0,0,0,0.4)}
 @keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
 .auth-box{max-width:440px;margin:60px auto;padding:0 24px}
 .auth-toggle{text-align:center;font-size:13px;color:var(--slate);margin-top:18px;cursor:pointer}
 .auth-toggle span{color:var(--gold)}
@@ -172,7 +174,7 @@ input[type=range]:focus{box-shadow:none;border:none}
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState, useCallback} = React;
+const {useState, useEffect, useCallback} = React;
 
 /* ── Constants ─────────────────────────────────────────── */
 const INDUSTRIES = [
@@ -201,7 +203,13 @@ const EMPTY_FORM = {
   ownerName:'',ownerEmail:'',ownerPhone:'',
 };
 
-/* ── LocalStorage Helpers ───────────────────────────────── */
+/* ── Supabase Client ────────────────────────────────────── */
+const supabase = window.supabase.createClient(
+  'https://newthqsqpmmovvvrfjtu.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ld3RocXNxcG1tb3Z2dnJmanR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2Mjg5NTIsImV4cCI6MjA4OTIwNDk1Mn0.jQB0iqDvtBFA_UkQxFHwcozF3JkBqH4ZFI6qIM98apo'
+);
+
+/* ── LocalStorage Helpers (admin + fallback) ────────────── */
 const LS={
   getUsers:()=>JSON.parse(localStorage.getItem('er_users')||'{}'),
   saveUsers:u=>localStorage.setItem('er_users',JSON.stringify(u)),
@@ -588,11 +596,8 @@ function generateExcel(data){
 /* ── App ────────────────────────────────────────────────── */
 function App(){
   const [view,setView]=useState('landing');
-  const [user,setUser]=useState(()=>{
-    const cur=LS.getCurrent();
-    if(!cur)return null;
-    return LS.getUsers()[cur]||null;
-  });
+  const [user,setUser]=useState(null);
+  const [authLoading,setAuthLoading]=useState(true);
   const [formData,setFormData]=useState({});
   const [editingSubId,setEditingSubId]=useState(null);
   const [payModal,setPayModal]=useState(false);
@@ -611,28 +616,67 @@ function App(){
       status:'New',notes:'',formData:s.formData,
     })),
   ]);
-  const [userSubs,setUserSubs]=useState(()=>{
-    const cur=LS.getCurrent();
-    if(!cur)return[];
-    return LS.getSubs().filter(s=>s.userId===cur);
-  });
+  const [userSubs,setUserSubs]=useState([]);
 
   const notify=msg=>{setNotification(msg);setTimeout(()=>setNotification(null),3800)};
 
-  const handleLogin=u=>{
+  const loadUserSubs=async(userId)=>{
+    try{
+      const {data,error}=await supabase
+        .from('submissions').select('*')
+        .eq('user_id',userId).order('created_at',{ascending:false});
+      if(error){console.error('loadUserSubs:',error);return[];}
+      const fmt=(data||[]).map(s=>({
+        id:s.id,userId:s.user_id,formData:s.form_data||{},
+        purchases:{deck:s.deck_paid||false,excel:s.excel_paid||false},
+        bizName:s.biz_name||s.form_data?.bizName||'Untitled',
+        industry:s.industry||'—',asking:s.asking||'—',rev1:s.rev1||'—',
+        date:s.date||new Date(s.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+      }));
+      setUserSubs(fmt);
+      return fmt;
+    }catch(e){console.error('loadUserSubs:',e);return[];}
+  };
+
+  const mapSbUser=sb=>({
+    id:sb.id,email:sb.email,
+    name:sb.user_metadata?.name||sb.user_metadata?.full_name||sb.email.split('@')[0],
+    phone:sb.user_metadata?.phone||'',
+  });
+
+  useEffect(()=>{
+    const isOAuthReturn=window.location.search.includes('code=')||window.location.hash.includes('access_token=');
+    supabase.auth.getSession().then(({data:{session}})=>{
+      if(session?.user){
+        const u=mapSbUser(session.user);
+        setUser(u);
+        loadUserSubs(u.id);
+        if(isOAuthReturn){
+          setView('form');
+          window.history.replaceState({},document.title,window.location.pathname);
+        }
+      }
+      setAuthLoading(false);
+    });
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
+      if(event==='SIGNED_OUT'){setUser(null);setUserSubs([]);}
+    });
+    return()=>subscription.unsubscribe();
+  },[]);
+
+  const handleLogin=async(u)=>{
     setUser(u);
-    LS.setCurrent(u.email);
     if(u.role==='admin'){
       setView('admin');
     } else {
-      setUserSubs(LS.getSubs().filter(s=>s.userId===u.email));
+      await loadUserSubs(u.id);
       setView('form');
     }
   };
 
-  const handleLogout=()=>{
+  const handleLogout=async()=>{
+    if(user&&user.role!=='admin') await supabase.auth.signOut();
     setUser(null);
-    LS.setCurrent(null);
     setUserSubs([]);
     setFormData({});
     setEditingSubId(null);
@@ -640,37 +684,41 @@ function App(){
     setView('landing');
   };
 
-  const persistSub=(formD,purc,subId)=>{
+  const persistSub=async(formD,purc,subId)=>{
     if(!user||user.role==='admin')return subId;
-    const allSubs=LS.getSubs();
-    const id=subId||Date.now().toString();
-    const sub={
-      id,userId:user.email,formData:formD,purchases:purc,
-      bizName:formD.bizName||'Untitled Business',industry:formD.industry,
+    const row={
+      user_id:user.id,form_data:formD,
+      deck_paid:purc.deck||false,excel_paid:purc.excel||false,
+      biz_name:formD.bizName||'Untitled Business',industry:formD.industry||'—',
       asking:formD.asking||'—',rev1:formD.rev1||'—',
-      owner:formD.ownerName||user.name,email:formD.ownerEmail||user.email,phone:formD.ownerPhone||user.phone||'',
       date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
     };
-    const updated=allSubs.find(s=>s.id===id)
-      ?allSubs.map(s=>s.id===id?sub:s)
-      :[...allSubs,sub];
-    LS.saveSubs(updated);
-    setUserSubs(updated.filter(s=>s.userId===user.email));
-    return id;
+    try{
+      if(subId){
+        const {data,error}=await supabase.from('submissions').update(row).eq('id',subId).select().single();
+        if(error){console.error('update sub:',error);return subId;}
+        loadUserSubs(user.id);
+        return data.id;
+      } else {
+        const {data,error}=await supabase.from('submissions').insert(row).select().single();
+        if(error){console.error('insert sub:',error);return null;}
+        loadUserSubs(user.id);
+        return data.id;
+      }
+    }catch(e){console.error('persistSub:',e);return subId;}
   };
 
-  const handleFormDone=d=>{
+  const handleFormDone=async(d)=>{
     setFormData(d);
     if(user&&user.role!=='admin'){
-      const id=editingSubId||Date.now().toString();
-      persistSub(d,purchases,id);
-      if(!editingSubId)setEditingSubId(id);
+      const id=await persistSub(d,purchases,editingSubId);
+      if(!editingSubId&&id)setEditingSubId(id);
     }
     setView('result');
   };
 
   const handlePay=product=>{setPayProduct(product);setPayModal(true)};
-  const handlePayConfirm=()=>{
+  const handlePayConfirm=async()=>{
     const np={...purchases};
     if(payProduct==='deck')np.deck=true;
     if(payProduct==='excel')np.excel=true;
@@ -678,10 +726,10 @@ function App(){
     setPurchases(np);
     setPayModal(false);
     if(user&&editingSubId){
-      const allSubs=LS.getSubs();
-      const updated=allSubs.map(s=>s.id===editingSubId?{...s,purchases:np}:s);
-      LS.saveSubs(updated);
-      setUserSubs(updated.filter(s=>s.userId===user.email));
+      try{
+        await supabase.from('submissions').update({deck_paid:np.deck,excel_paid:np.excel}).eq('id',editingSubId);
+        loadUserSubs(user.id);
+      }catch(e){console.error('pay update:',e);}
     }
     if(payProduct==='deck'||payProduct==='bundle'){generatePPTX(formData,false);notify('✓ Clean deck downloaded!');}
     if(payProduct==='excel'||payProduct==='bundle'){generateExcel(formData);notify('✓ Excel model downloaded!');}
@@ -700,6 +748,13 @@ function App(){
     setEditingSubId(null);
     setView(user?'form':'auth');
   };
+
+  if(authLoading)return(
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:'16px'}}>
+      <div style={{width:'40px',height:'40px',border:'3px solid var(--border2)',borderTopColor:'var(--gold)',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+      <div style={{color:'var(--slate)',fontSize:'14px'}}>Loading ExitReady...</div>
+    </div>
+  );
 
   return(
     <div>
@@ -836,27 +891,41 @@ function Auth({onAuth}){
   const [contactTime,setContactTime]=useState('');
   const [pass,setPass]=useState('');
   const [error,setError]=useState('');
+  const [info,setInfo]=useState('');
+  const [busy,setBusy]=useState(false);
 
-  const handleSubmit=()=>{
-    setError('');
+  const handleSubmit=async()=>{
+    setError('');setInfo('');
     if(!email||!pass){setError('Email and password are required.');return;}
-    // Admin login
+    // Admin login (not a Supabase user)
     if(email.toLowerCase()==='admin'&&pass==='Admin123'){
       onAuth({name:'Administrator',email:'Admin',role:'admin'});
       return;
     }
-    const users=LS.getUsers();
+    setBusy(true);
     if(mode==='signup'){
-      if(users[email]){setError('An account with this email already exists. Sign in instead.');return;}
-      const u={name:name||email.split('@')[0],email,phone,contactTime,password:pass};
-      users[email]=u;
-      LS.saveUsers(users);
-      onAuth(u);
+      const {data,error:e}=await supabase.auth.signUp({
+        email,password:pass,
+        options:{data:{name:name||email.split('@')[0],phone,contactTime}},
+      });
+      if(e){setError(e.message);setBusy(false);return;}
+      if(data.session&&data.user){
+        // Email confirmation disabled — signed in immediately
+        onAuth({id:data.user.id,email:data.user.email,name:name||email.split('@')[0],phone});
+      } else {
+        // Email confirmation required
+        setInfo('Account created! Check your inbox for a confirmation link, then sign in.');
+        setMode('login');
+      }
     } else {
-      const u=users[email];
-      if(!u||u.password!==pass){setError('Invalid email or password.');return;}
-      onAuth(u);
+      const {data,error:e}=await supabase.auth.signInWithPassword({email,password:pass});
+      if(e){setError(e.message);setBusy(false);return;}
+      if(data.user){
+        const sb=data.user;
+        onAuth({id:sb.id,email:sb.email,name:sb.user_metadata?.name||sb.email.split('@')[0],phone:sb.user_metadata?.phone||''});
+      }
     }
+    setBusy(false);
   };
 
   return(
@@ -891,22 +960,19 @@ function Auth({onAuth}){
         <div className="field-group"><label>Password</label>
           <input type="password" placeholder="••••••••" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSubmit()}/>
         </div>
+        {info&&<div style={{background:'rgba(82,183,136,0.08)',border:'1px solid rgba(82,183,136,0.25)',borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'var(--green)'}}>{info}</div>}
         {error&&<div style={{background:'rgba(232,118,90,0.08)',border:'1px solid rgba(232,118,90,0.25)',borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'var(--red)'}}>{error}</div>}
-        <button className="btn-gold" style={{width:'100%',padding:'14px',marginTop:'8px',fontSize:'15px'}} onClick={handleSubmit}>
-          {mode==='signup'?'Create Account & Continue →':'Sign In →'}
+        <button className="btn-gold" style={{width:'100%',padding:'14px',marginTop:'8px',fontSize:'15px'}} disabled={busy} onClick={handleSubmit}>
+          {busy?'Please wait…':(mode==='signup'?'Create Account & Continue →':'Sign In →')}
         </button>
         <div style={{textAlign:'center',margin:'18px 0 6px',color:'var(--slate)',fontSize:'13px'}}>or</div>
-        <button className="btn-outline" style={{width:'100%',padding:'12px',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px'}} onClick={()=>{
-          const gUser={name:'Google User',email:'google@exitready-demo.com',phone:''};
-          const users=LS.getUsers();
-          if(!users[gUser.email])users[gUser.email]={...gUser,password:'google-oauth'};
-          LS.saveUsers(users);
-          onAuth(users[gUser.email]);
+        <button className="btn-outline" style={{width:'100%',padding:'12px',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px'}} onClick={async()=>{
+          await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.href.split('?')[0].split('#')[0]}});
         }}>
           <span style={{fontSize:'16px',fontWeight:'700'}}>G</span> Continue with Google
         </button>
       </div>
-      <div className="auth-toggle" onClick={()=>{setMode(mode==='signup'?'login':'signup');setError('');}}>
+      <div className="auth-toggle" onClick={()=>{setMode(mode==='signup'?'login':'signup');setError('');setInfo('');}}>
         {mode==='signup'?<>Already have an account? <span>Sign in</span></>:<>New here? <span>Create account</span></>}
       </div>
       <div style={{textAlign:'center',marginTop:'20px',padding:'14px',background:'rgba(201,168,76,0.04)',borderRadius:'10px',border:'1px solid rgba(201,168,76,0.12)'}}>
