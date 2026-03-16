@@ -657,7 +657,7 @@ function App(){
         }
       }
       setAuthLoading(false);
-    });
+    }).catch(e=>{console.error('getSession:',e);setAuthLoading(false);});
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
       if(event==='SIGNED_OUT'){setUser(null);setUserSubs([]);}
     });
@@ -701,7 +701,7 @@ function App(){
         return data.id;
       } else {
         const {data,error}=await supabase.from('submissions').insert(row).select().single();
-        if(error){console.error('insert sub:',error);return null;}
+        if(error){console.error('insert sub:',error);return subId;}
         loadUserSubs(user.id);
         return data.id;
       }
@@ -786,9 +786,6 @@ function Nav({view,setView,user,onLogout,onGetStarted}){
         )}
         {user&&user.role==='admin'&&(
           <button className="btn-ghost" style={{fontSize:'13px',color:'var(--gold)'}} onClick={()=>setView('admin')}>Admin Dashboard</button>
-        )}
-        {(!user||user.role!=='admin')&&(
-          <button className="btn-ghost" style={{fontSize:'13px'}} onClick={()=>setView('auth')}>Admin</button>
         )}
         {!user&&<button className="btn-outline" style={{fontSize:'13px',padding:'8px 18px'}} onClick={()=>setView('auth')}>Log In</button>}
         {!user&&<button className="btn-gold" style={{fontSize:'13px',padding:'9px 22px'}} onClick={onGetStarted}>List My Business →</button>}
@@ -975,10 +972,6 @@ function Auth({onAuth}){
       <div className="auth-toggle" onClick={()=>{setMode(mode==='signup'?'login':'signup');setError('');setInfo('');}}>
         {mode==='signup'?<>Already have an account? <span>Sign in</span></>:<>New here? <span>Create account</span></>}
       </div>
-      <div style={{textAlign:'center',marginTop:'20px',padding:'14px',background:'rgba(201,168,76,0.04)',borderRadius:'10px',border:'1px solid rgba(201,168,76,0.12)'}}>
-        <div style={{fontSize:'11px',color:'var(--slate)',marginBottom:'4px',textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:'600'}}>Admin Access</div>
-        <div style={{fontSize:'12px',color:'var(--slate)'}}>Username: <span style={{color:'var(--gold)'}}>Admin</span> · Password: <span style={{color:'var(--gold)'}}>Admin123</span></div>
-      </div>
     </div>
   );
 }
@@ -992,6 +985,16 @@ function IntakeForm({user,initialData,onDone}){
       ? initialData
       : {...EMPTY_FORM,ownerName:user?.name||'',ownerEmail:user?.email||'',ownerPhone:user?.phone||''}
   );
+
+  // Reset form when initialData changes (e.g. Edit & Regenerate vs New Submission)
+  useEffect(()=>{
+    setStep(0);
+    setData(
+      Object.keys(initialData||{}).length>0
+        ? initialData
+        : {...EMPTY_FORM,ownerName:user?.name||'',ownerEmail:user?.email||'',ownerPhone:user?.phone||''}
+    );
+  },[initialData]);
 
   // Stable setter — never changes reference
   const set=useCallback((k,v)=>setData(d=>({...d,[k]:v})),[]);
@@ -1898,7 +1901,7 @@ function AdminDash({adminTab,setAdminTab,submissions,setSubmissions,selectedSub,
       {adminTab==='dashboard'&&(
         <div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'14px',marginBottom:'28px'}}>
-            {[['Total Submissions',submissions.length],['Paid Downloads',paidCount],['Conversion Rate',Math.round(paidCount/submissions.length*100)+'%'],['Total Revenue','$'+totalRevenue.toFixed(0)]].map(([l,n])=>(
+            {[['Total Submissions',submissions.length],['Paid Downloads',paidCount],['Conversion Rate',submissions.length?Math.round(paidCount/submissions.length*100)+'%':'0%'],['Total Revenue','$'+totalRevenue.toFixed(0)]].map(([l,n])=>(
               <div className="admin-stat" key={l}><div className="num">{n}</div><div className="lbl">{l}</div></div>
             ))}
           </div>
@@ -1907,7 +1910,7 @@ function AdminDash({adminTab,setAdminTab,submissions,setSubmissions,selectedSub,
               <div style={{fontWeight:'600',marginBottom:'18px',fontSize:'14px',color:'var(--cream)'}}>Pipeline by Status</div>
               {['New','Contacted','In Diligence','Passed','Closed'].map(s=>{
                 const count=submissions.filter(x=>x.status===s).length;
-                const pct=Math.round(count/submissions.length*100);
+                const pct=submissions.length?Math.round(count/submissions.length*100):0;
                 return(
                   <div key={s} style={{marginBottom:'12px'}}>
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'5px'}}>
