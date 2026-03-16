@@ -973,23 +973,248 @@ function IntakeForm({user,onDone}){
 
 function ResultView({formData,purchases,onPay}){
   const [tab,setTab]=useState('deck');
+
+  /* ── 5 rendered slide mini-previews ── */
+  const SlideThumb=({title,children,locked})=>(
+    <div style={{position:'relative',background:'var(--navy3)',border:'1px solid var(--border)',borderRadius:'10px',overflow:'hidden',aspectRatio:'16/9',display:'flex',flexDirection:'column'}}>
+      {/* slide header bar */}
+      <div style={{background:'rgba(201,168,76,0.08)',borderBottom:'1px solid rgba(201,168,76,0.15)',padding:'5px 8px',display:'flex',alignItems:'center',gap:'5px',flexShrink:0}}>
+        <div style={{width:'4px',height:'100%',background:'var(--gold)',borderRadius:'2px',alignSelf:'stretch'}}/>
+        <span style={{fontSize:'8px',fontWeight:'700',color:'var(--gold)',letterSpacing:'0.08em',textTransform:'uppercase',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{title}</span>
+      </div>
+      <div style={{flex:1,padding:'8px',overflow:'hidden',filter:locked?'blur(3.5px)':'none'}}>
+        {children}
+      </div>
+      {locked&&(
+        <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'rgba(13,17,23,0.55)',gap:'4px'}}>
+          <div style={{fontSize:'18px'}}>🔒</div>
+          <div style={{fontSize:'9px',fontWeight:'600',color:'var(--slate)',letterSpacing:'0.04em'}}>UNLOCK TO VIEW</div>
+        </div>
+      )}
+    </div>
+  );
+
+  const MiniBar=({w,color='var(--gold)',h=6})=>(
+    <div style={{height:`${h}px`,width:`${w}%`,background:color,borderRadius:'2px',marginBottom:'3px'}}/>
+  );
+  const MiniRow=({label,val,highlight})=>(
+    <div style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid rgba(30,46,66,0.8)',padding:'2px 0',marginBottom:'1px'}}>
+      <span style={{fontSize:'7px',color:'var(--slate)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'55%'}}>{label}</span>
+      <span style={{fontSize:'7px',fontWeight:'600',color:highlight?'var(--gold)':'var(--cream)'}}>{val}</span>
+    </div>
+  );
+
+  const slide1Content=(
+    <div>
+      <div style={{fontSize:'7px',fontWeight:'700',color:'var(--gold)',letterSpacing:'0.08em',marginBottom:'3px',textTransform:'uppercase'}}>Confidential Investment Summary</div>
+      <div style={{fontFamily:'DM Serif Display,serif',fontSize:'13px',color:'var(--cream)',lineHeight:1.1,marginBottom:'3px'}}>{formData.bizName||'Your Business'}</div>
+      <div style={{fontSize:'7px',color:'var(--slate)',marginBottom:'6px'}}>{formData.industry||'Industry'} · Est. {formData.founded||'—'}</div>
+      <div style={{height:'1px',background:'rgba(201,168,76,0.3)',marginBottom:'6px'}}/>
+      <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+        {[['Asking',formData.asking||'TBD'],['Revenue',formData.rev1||'—'],['EBITDA',formData.ebitda1||'—']].map(([l,v])=>(
+          <div key={l}><div style={{fontSize:'6px',color:'var(--slate)',textTransform:'uppercase',letterSpacing:'0.04em'}}>{l}</div><div style={{fontSize:'9px',fontWeight:'700',color:'var(--gold)'}}>{v}</div></div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const slide2Content=(
+    <div>
+      <div style={{fontSize:'8px',fontFamily:'DM Serif Display,serif',color:'var(--cream)',marginBottom:'5px'}}>Executive Summary</div>
+      {[
+        ['Business',formData.description?(formData.description.substring(0,45)+'...'):'—'],
+        ['Revenue',formData.rev1||'—'],
+        ['EBITDA',formData.ebitda1||'—'],
+        ['Employees',(formData.employees||'—')+' FT'],
+        ['Asking',formData.asking||'—'],
+      ].map(([k,v])=><MiniRow key={k} label={`▸ ${k}`} val={v} highlight={k==='Asking'}/>)}
+    </div>
+  );
+
+  const slide3Content=(
+    <div>
+      <div style={{fontSize:'8px',fontFamily:'DM Serif Display,serif',color:'var(--cream)',marginBottom:'5px'}}>Financial Highlights</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:'2px',marginBottom:'4px'}}>
+        {['Metric','Yr 3','Yr 2','Yr 1'].map(h=><div key={h} style={{fontSize:'6px',fontWeight:'700',color:'var(--gold)',padding:'2px 3px',background:'rgba(26,37,53,0.8)',textAlign:'center'}}>{h}</div>)}
+        {['Revenue',formData.rev3||'—',formData.rev2||'—',formData.rev1||'—'].map((c,i)=><div key={i} style={{fontSize:'6px',color:i===0?'var(--slate)':'var(--cream)',padding:'2px 3px',background:'rgba(13,17,23,0.5)',textAlign:'center',fontWeight:i===3?'600':'400'}}>{c}</div>)}
+        {['EBITDA',formData.ebitda3||'—',formData.ebitda2||'—',formData.ebitda1||'—'].map((c,i)=><div key={i} style={{fontSize:'6px',color:i===0?'var(--slate)':'var(--cream)',padding:'2px 3px',background:'rgba(20,28,38,0.5)',textAlign:'center'}}>{c}</div>)}
+      </div>
+      <MiniBar w={45} color="rgba(201,168,76,0.5)"/>
+      <MiniBar w={65} color="rgba(201,168,76,0.7)"/>
+      <MiniBar w={85} color="var(--gold)"/>
+    </div>
+  );
+
+  const slide4Content=(
+    <div>
+      <div style={{fontSize:'8px',fontFamily:'DM Serif Display,serif',color:'var(--cream)',marginBottom:'5px'}}>Operations Snapshot</div>
+      {[
+        ['Owner Dependency',`${formData.ownerDep||'—'} / 5`],
+        ['Active Customers',formData.activeCust||'—'],
+        ['Avg. Contract',formData.avgContract||'—'],
+        ['SOPs',formData.hasSOPs||'—'],
+        ['Mgmt Team',formData.hasMgmt||'—'],
+      ].map(([k,v])=><MiniRow key={k} label={k} val={v}/>)}
+    </div>
+  );
+
+  const slide5Content=(
+    <div>
+      <div style={{fontSize:'8px',fontFamily:'DM Serif Display,serif',color:'var(--cream)',marginBottom:'5px'}}>Market & Growth</div>
+      <div style={{fontSize:'7px',color:'var(--slate)',marginBottom:'4px',lineHeight:1.4}}>{formData.moat?(formData.moat.substring(0,60)+'...'):'Competitive moat & market position'}</div>
+      <div style={{fontSize:'6px',fontWeight:'700',color:'var(--gold)',marginBottom:'2px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Top Competitors</div>
+      {[formData.comp1,formData.comp2,formData.comp3].filter(Boolean).slice(0,3).map((c,i)=>(
+        <div key={i} style={{fontSize:'7px',color:'var(--slate)',padding:'2px 0',borderBottom:'1px solid rgba(30,46,66,0.5)'}}>▸ {c}</div>
+      ))}
+      {![formData.comp1,formData.comp2,formData.comp3].filter(Boolean).length&&<div style={{fontSize:'7px',color:'var(--slate)'}}>▸ See full competitive analysis</div>}
+    </div>
+  );
+
+  const slides=[
+    {title:'01 — Cover Page',content:slide1Content,locked:false},
+    {title:'02 — Executive Summary',content:slide2Content,locked:false},
+    {title:'03 — Financial Highlights',content:slide3Content,locked:false},
+    {title:'04 — Operations',content:slide4Content,locked:false},
+    {title:'05 — Market & Growth',content:slide5Content,locked:false},
+    {title:'06 — Deal Structure & Terms',content:null,locked:true},
+    {title:'07 — Why Buy This Business',content:null,locked:true},
+    {title:'08 — Next Steps',content:null,locked:true},
+  ];
+
+  /* ── Excel tab screenshots (rendered in HTML/CSS) ── */
+  const ExcelScreenshot=({tab:tabName,rows,headers,highlightCols})=>(
+    <div style={{background:'#1d2b1d',borderRadius:'10px',overflow:'hidden',border:'1px solid #2a3f2a',fontFamily:'Consolas,Monaco,monospace'}}>
+      {/* Excel toolbar mock */}
+      <div style={{background:'#217346',padding:'6px 12px',display:'flex',alignItems:'center',gap:'8px'}}>
+        <div style={{display:'flex',gap:'4px'}}>
+          {['#217346','#1a5c38','#145029'].map((c,i)=><div key={i} style={{width:'10px',height:'10px',borderRadius:'50%',background:c,border:'1px solid rgba(255,255,255,0.2)'}}/>)}
+        </div>
+        <span style={{fontSize:'11px',fontWeight:'600',color:'#fff',marginLeft:'4px'}}>📊 ExitReady_FinancialModel.xlsx</span>
+        <div style={{marginLeft:'auto',display:'flex',gap:'2px'}}>
+          {['File','Edit','View','Insert','Format','Data'].map(m=><span key={m} style={{fontSize:'10px',color:'rgba(255,255,255,0.7)',padding:'2px 6px',borderRadius:'3px',cursor:'default'}}>{m}</span>)}
+        </div>
+      </div>
+      {/* Sheet tabs */}
+      <div style={{background:'#2d2d2d',borderBottom:'1px solid #444',display:'flex',gap:'0',padding:'0 8px',paddingTop:'4px'}}>
+        {['Income Statement','DCF Valuation','Deal Assumptions','Key Metrics'].map((t,i)=>(
+          <div key={t} style={{fontSize:'10px',padding:'4px 12px',cursor:'default',borderRadius:'4px 4px 0 0',background:t===tabName?'#1d2b1d':'transparent',color:t===tabName?'#4ade80':'#888',borderTop:t===tabName?'2px solid #217346':'2px solid transparent',fontWeight:t===tabName?'600':'400',whiteSpace:'nowrap'}}>
+            {t}
+          </div>
+        ))}
+      </div>
+      {/* Formula bar */}
+      <div style={{background:'#2a2a2a',padding:'3px 8px',borderBottom:'1px solid #444',display:'flex',alignItems:'center',gap:'6px'}}>
+        <span style={{fontSize:'10px',color:'#888',minWidth:'30px'}}>A1</span>
+        <div style={{width:'1px',height:'14px',background:'#444'}}/>
+        <span style={{fontSize:'10px',color:'#ccc',fontStyle:'italic'}}>{rows[0]?.[0]||''}</span>
+      </div>
+      {/* Spreadsheet grid */}
+      <div style={{overflowX:'auto',padding:'0'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'10px',minWidth:'400px'}}>
+          {/* Column headers */}
+          <thead>
+            <tr>
+              <th style={{width:'24px',background:'#2d2d2d',border:'1px solid #3a3a3a',padding:'2px',color:'#666',fontSize:'9px',textAlign:'center'}}></th>
+              {headers.map((h,i)=>(
+                <th key={i} style={{background:'#2d2d2d',border:'1px solid #3a3a3a',padding:'3px 8px',color:'#888',fontSize:'9px',fontWeight:'400',textAlign:'center',minWidth:'90px'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row,ri)=>(
+              <tr key={ri}>
+                <td style={{background:'#2d2d2d',border:'1px solid #3a3a3a',padding:'2px',color:'#555',fontSize:'9px',textAlign:'center'}}>{ri+1}</td>
+                {row.map((cell,ci)=>{
+                  const isHeader=ri===0||ci===0;
+                  const isHighlight=highlightCols&&highlightCols.includes(ci)&&ri>0;
+                  const isEmpty=cell===''||cell==='INPUT';
+                  const isTotal=typeof cell==='string'&&(cell.startsWith('TOTAL')||cell.startsWith('NET ')||cell.startsWith('GROSS '));
+                  return(
+                    <td key={ci} style={{
+                      border:'1px solid #2a3a2a',
+                      padding:'3px 8px',
+                      color: isTotal?'#4ade80':isHeader?'#C9A84C':isHighlight?'#86efac':isEmpty?'rgba(201,168,76,0.3)':'#d1fae5',
+                      background: isTotal?'rgba(34,197,94,0.08)':isHeader&&ri===0?'rgba(33,115,70,0.3)':ri%2===0?'rgba(255,255,255,0.02)':'transparent',
+                      fontWeight: isTotal||ri===0?'600':'400',
+                      fontStyle: isEmpty?'italic':'normal',
+                      fontSize:'10px',
+                      whiteSpace:'nowrap',
+                    }}>
+                      {cell===''?'—':cell==='INPUT'?'● input':cell}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{background:'#2d2d2d',padding:'4px 12px',borderTop:'1px solid #444',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:'9px',color:'#666'}}>● = input cell (yellow) · Formulas auto-calculate</span>
+        <span style={{fontSize:'9px',color:'#217346',fontWeight:'600'}}>ExitReady Financial Model</span>
+      </div>
+    </div>
+  );
+
+  const incomeRows=[
+    ['INCOME STATEMENT','Year 3','Year 2','Year 1 (TTM)','Yr 2 (Proj)','Yr 3 (Proj)'],
+    ['REVENUE','','','','',''],
+    [formData.revStream1||'Revenue Stream 1','','',formData.rev1||'INPUT','INPUT','INPUT'],
+    [formData.revStream2||'Revenue Stream 2','INPUT','INPUT','INPUT','INPUT','INPUT'],
+    ['TOTAL REVENUE',formData.rev3||'INPUT',formData.rev2||'INPUT',formData.rev1||'INPUT','',''],
+    ['','','','','',''],
+    ['OPERATING EXPENSES','','','','',''],
+    ['Payroll & Benefits','INPUT','INPUT','INPUT','INPUT','INPUT'],
+    ['Rent / Facilities','INPUT','INPUT','INPUT','INPUT','INPUT'],
+    ['Marketing','INPUT','INPUT','INPUT','INPUT','INPUT'],
+    ['Software & Tech','INPUT','INPUT','INPUT','INPUT','INPUT'],
+    ['TOTAL OpEx','','','','',''],
+    ['EBITDA',formData.ebitda3||'INPUT',formData.ebitda2||'INPUT',formData.ebitda1||'INPUT','',''],
+    ['Depreciation','INPUT','INPUT','INPUT','INPUT','INPUT'],
+    ['NET INCOME','','','','',''],
+  ];
+
+  const dcfRows=[
+    ['DCF VALUATION MODEL',formData.bizName||'Your Business','','','',''],
+    ['ASSUMPTIONS','Value','','NOTES','',''],
+    ['Discount Rate (WACC)','12%','','Adjust for risk profile','',''],
+    ['Terminal Growth Rate','3%','','Gordon Growth Model','',''],
+    ['EBITDA Margin',formData.grossMargin||'INPUT','','','',''],
+    ['','','','','',''],
+    ['PROJECTIONS','Year 1','Year 2','Year 3','Year 4','Year 5'],
+    ['Revenue',formData.rev1||'INPUT','','','',''],
+    ['EBITDA',formData.ebitda1||'INPUT','','','',''],
+    ['Free Cash Flow','','','','',''],
+    ['Discount Factor','1.000','','','',''],
+    ['PV of FCF','','','','',''],
+    ['','','','','',''],
+    ['ENTERPRISE VALUE (DCF)','','','','',''],
+    ['Seller Asking Price',formData.asking||'INPUT','','','',''],
+    ['Variance vs. Asking','','','','',''],
+  ];
+
   return(
-    <div className="form-container" style={{maxWidth:'780px'}}>
-      <div style={{textAlign:'center',padding:'48px 20px 32px'}}>
+    <div style={{maxWidth:'820px',margin:'0 auto',padding:'40px 24px'}}>
+      {/* Success header */}
+      <div style={{textAlign:'center',padding:'40px 20px 28px'}}>
         <div style={{width:'68px',height:'68px',borderRadius:'50%',background:'rgba(82,183,136,0.1)',border:'2px solid var(--green)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'28px',margin:'0 auto 20px'}}>✓</div>
         <h2 className="serif" style={{fontSize:'38px',color:'var(--cream)',marginBottom:'12px'}}>Your Deck Is Ready</h2>
-        <p style={{color:'var(--slate)',maxWidth:'500px',margin:'0 auto',fontSize:'15px',lineHeight:'1.7'}}>Your watermarked preview is below. Pay once to unlock your clean, professional deck — no subscription, no broker fee.</p>
+        <p style={{color:'var(--slate)',maxWidth:'500px',margin:'0 auto',fontSize:'15px',lineHeight:'1.7'}}>Your watermarked preview is below. Pay once to unlock your clean deck — or grab the bundle and get the full Excel financial model too.</p>
       </div>
+
+      {/* Tabs */}
       <div style={{display:'flex',justifyContent:'center',marginBottom:'28px'}}>
         <div className="tabs">
-          <button className={`tab${tab==='deck'?' active':''}`} onClick={()=>setTab('deck')}>Deck Preview</button>
-          <button className={`tab${tab==='excel'?' active':''}`} onClick={()=>setTab('excel')}>Excel Model</button>
-          <button className={`tab${tab==='unlock'?' active':''}`} onClick={()=>setTab('unlock')}>Unlock & Download</button>
+          <button className={`tab${tab==='deck'?' active':''}`} onClick={()=>setTab('deck')}>📊 Deck Preview</button>
+          <button className={`tab${tab==='excel'?' active':''}`} onClick={()=>setTab('excel')}>📈 Excel Model — $29.99</button>
+          <button className={`tab${tab==='unlock'?' active':''}`} onClick={()=>setTab('unlock')}>🔓 Unlock & Download</button>
         </div>
       </div>
 
+      {/* ── DECK PREVIEW TAB ── */}
       {tab==='deck'&&(
         <div>
+          {/* Large cover slide */}
           <div className="deck-preview">
             <div className="deck-slide">
               <div className="watermark"><div className="watermark-text">ExitReady — PREVIEW ONLY<br/>ExitReady — PREVIEW ONLY</div></div>
@@ -1009,42 +1234,111 @@ function ResultView({formData,purchases,onPay}){
               </div>
             </div>
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:'8px',marginTop:'10px'}}>
-            {['Exec Summary','Financials','Operations','Market','Deal Terms'].map((s,i)=>(
-              <div key={s} style={{background:'var(--navy2)',border:'1px solid var(--border)',borderRadius:'8px',padding:'12px 10px',filter:i>0?'blur(3px)':'none',position:'relative',overflow:'hidden'}}>
-                <div style={{fontSize:'10px',color:'var(--gold)',marginBottom:'6px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</div>
-                <div style={{height:'36px',background:'var(--navy3)',borderRadius:'4px'}}/>
-                {i>0&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(13,17,23,0.5)',borderRadius:'8px',fontSize:'18px'}}>🔒</div>}
-              </div>
+
+          {/* 8-slide thumbnail strip — 5 visible, 3 locked */}
+          <div style={{marginTop:'16px',marginBottom:'8px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:'12px',color:'var(--slate)'}}>All 8 slides — <span style={{color:'var(--green)'}}>5 unlocked for preview</span> · <span style={{color:'var(--red)'}}>3 locked</span></span>
+            <span style={{fontSize:'12px',color:'var(--slate)'}}>8 slides total</span>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'8px'}}>
+            {slides.slice(0,4).map((s,i)=>(
+              <SlideThumb key={i} title={s.title} locked={s.locked}>{s.content}</SlideThumb>
             ))}
           </div>
-          <div style={{textAlign:'center',marginTop:'20px',display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px'}}>
+            {slides.slice(4,8).map((s,i)=>(
+              <SlideThumb key={i+4} title={s.title} locked={s.locked}>{s.content}</SlideThumb>
+            ))}
+          </div>
+
+          <div style={{textAlign:'center',marginTop:'24px',display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
             <button className="btn-ghost" style={{color:'var(--gold)',textDecoration:'underline',fontSize:'13px'}} onClick={()=>generatePPTX(formData,true)}>↓ Download Watermarked Preview (.pptx)</button>
-            <button className="btn-gold" style={{fontSize:'13px',padding:'10px 22px'}} onClick={()=>setTab('unlock')}>Unlock Clean Version →</button>
+            <button className="btn-gold" style={{fontSize:'13px',padding:'10px 24px'}} onClick={()=>setTab('unlock')}>Unlock All 8 Slides →</button>
           </div>
         </div>
       )}
 
+      {/* ── EXCEL MODEL TAB ── */}
       {tab==='excel'&&(
-        <div className="card">
-          <div className="serif" style={{fontSize:'24px',marginBottom:'8px',color:'var(--cream)'}}>Excel Financial Model</div>
-          <div style={{fontSize:'13px',color:'var(--slate)',marginBottom:'22px',lineHeight:'1.6'}}>A full acquisition-grade financial model pre-populated with your data. Four tabs covering everything an investor needs.</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'24px'}}>
-            {[['📊','Income Statement','3-year actuals + 2-year projections'],['📈','DCF Valuation Model','Discounted cash flow with inputs'],['🤝','Deal Assumptions','Earnout, seller note & WC scenarios'],['📋','Key Metrics Dashboard','Benchmarks & implied multiples']].map(([icon,title,desc])=>(
-              <div key={title} style={{background:'var(--navy)',borderRadius:'10px',padding:'14px',border:'1px solid var(--border)'}}>
-                <div style={{fontSize:'16px',marginBottom:'6px'}}>{icon}</div>
-                <div style={{fontSize:'13px',fontWeight:'600',color:'var(--cream)',marginBottom:'3px'}}>{title}</div>
-                <div style={{fontSize:'12px',color:'var(--slate)'}}>{desc}</div>
+        <div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'start',marginBottom:'20px',flexWrap:'wrap',gap:'12px'}}>
+            <div>
+              <div className="serif" style={{fontSize:'26px',color:'var(--cream)',marginBottom:'6px'}}>Excel Financial Model</div>
+              <p style={{fontSize:'13px',color:'var(--slate)',lineHeight:'1.6',maxWidth:'480px'}}>
+                A full acquisition-grade financial model pre-populated with your submitted data. Four tabs covering everything a serious buyer needs to evaluate and value your business.
+              </p>
+            </div>
+            <div style={{textAlign:'right',flexShrink:0}}>
+              {purchases.excel
+                ?<button className="btn-gold" style={{padding:'12px 24px'}} onClick={()=>generateExcel(formData)}>↓ Re-Download Excel</button>
+                :<button className="btn-gold" style={{padding:'12px 24px'}} onClick={()=>onPay('excel')}>Buy for $29.99 →</button>
+              }
+              <div style={{fontSize:'11px',color:'var(--slate)',marginTop:'6px'}}>Instant .xlsx download</div>
+            </div>
+          </div>
+
+          {/* Tab overview pills */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'10px',marginBottom:'24px'}}>
+            {[['📊','Income Statement','3-yr actuals + projections'],['📈','DCF Valuation','Discounted cash flow model'],['🤝','Deal Assumptions','Earnout & seller note scenarios'],['📋','Key Metrics','Benchmarks & implied multiples']].map(([icon,title,desc])=>(
+              <div key={title} style={{background:'var(--navy)',borderRadius:'10px',padding:'12px 14px',border:'1px solid var(--border)',textAlign:'center'}}>
+                <div style={{fontSize:'18px',marginBottom:'6px'}}>{icon}</div>
+                <div style={{fontSize:'12px',fontWeight:'600',color:'var(--cream)',marginBottom:'3px'}}>{title}</div>
+                <div style={{fontSize:'11px',color:'var(--slate)',lineHeight:'1.4'}}>{desc}</div>
               </div>
             ))}
           </div>
-          {purchases.excel
-            ?<button className="btn-gold" style={{width:'100%',padding:'13px',fontSize:'15px'}} onClick={()=>generateExcel(formData)}>↓ Re-Download Excel Model</button>
-            :<button className="btn-gold" style={{width:'100%',padding:'13px',fontSize:'15px'}} onClick={()=>onPay('excel')}>Unlock Excel Model — $29.99</button>
-          }
+
+          {/* Screenshot 1: Income Statement */}
+          <div style={{marginBottom:'24px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px'}}>
+              <span style={{fontSize:'14px',fontWeight:'600',color:'var(--cream)'}}>Tab Preview 1 — Income Statement</span>
+              <span className="badge badge-gold">Pre-populated with your data</span>
+            </div>
+            <ExcelScreenshot
+              tab="Income Statement"
+              headers={['A','B — Year 3','C — Year 2','D — Year 1','E — Proj Y2','F — Proj Y3']}
+              rows={incomeRows}
+              highlightCols={[3,4,5]}
+            />
+          </div>
+
+          {/* Screenshot 2: DCF Valuation */}
+          <div style={{marginBottom:'24px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px'}}>
+              <span style={{fontSize:'14px',fontWeight:'600',color:'var(--cream)'}}>Tab Preview 2 — DCF Valuation Model</span>
+              <span className="badge badge-green">Adjust inputs to model scenarios</span>
+            </div>
+            <ExcelScreenshot
+              tab="DCF Valuation"
+              headers={['A','B — Value','C','D — Notes','E','F']}
+              rows={dcfRows}
+              highlightCols={[1]}
+            />
+          </div>
+
+          <div style={{background:'rgba(201,168,76,0.05)',border:'1px solid rgba(201,168,76,0.2)',borderRadius:'12px',padding:'18px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'16px'}}>
+            <div>
+              <div style={{fontWeight:'600',fontSize:'15px',color:'var(--cream)',marginBottom:'4px'}}>Ready to download your model?</div>
+              <div style={{fontSize:'13px',color:'var(--slate)'}}>All 4 tabs · Pre-filled with your data · Editable .xlsx format</div>
+            </div>
+            <div style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}}>
+              <div className="serif" style={{fontSize:'28px',color:'var(--gold)'}}>$29.99</div>
+              {purchases.excel
+                ?<button className="btn-outline" onClick={()=>generateExcel(formData)}>↓ Re-Download</button>
+                :<button className="btn-gold" style={{padding:'12px 24px'}} onClick={()=>onPay('excel')}>Buy Excel Model →</button>
+              }
+            </div>
+          </div>
+
+          <div style={{textAlign:'center',marginTop:'14px'}}>
+            <button className="btn-ghost" style={{fontSize:'13px',color:'var(--gold)'}} onClick={()=>setTab('unlock')}>
+              Or get the Deck + Excel Bundle for $69.99 →
+            </button>
+          </div>
         </div>
       )}
 
+      {/* ── UNLOCK TAB ── */}
       {tab==='unlock'&&(
         <div>
           <div className="upsell-row">
@@ -1052,8 +1346,8 @@ function ResultView({formData,purchases,onPay}){
               <div className="badge badge-gold" style={{marginBottom:'14px'}}>Most Popular</div>
               <div className="serif" style={{fontSize:'32px',color:'var(--cream)',marginBottom:'4px'}}>$49.99</div>
               <div style={{fontSize:'15px',fontWeight:'600',marginBottom:'8px',color:'var(--cream)'}}>Clean Investor Deck</div>
-              <div style={{fontSize:'13px',color:'var(--slate)',marginBottom:'20px',lineHeight:'1.6'}}>8-slide watermark-free PowerPoint. Instant download. Fully editable.</div>
-              {['No watermark','8-slide structure','Editable .pptx','Instant delivery'].map(f=>(
+              <div style={{fontSize:'13px',color:'var(--slate)',marginBottom:'20px',lineHeight:'1.6'}}>All 8 slides, watermark-free. Instant .pptx download. Fully editable.</div>
+              {['No watermark','All 8 slides unlocked','Editable .pptx file','Instant delivery'].map(f=>(
                 <div className="check-row" key={f}><span className="check-icon">✓</span>{f}</div>
               ))}
               <div style={{marginTop:'20px'}}>
@@ -1067,8 +1361,8 @@ function ResultView({formData,purchases,onPay}){
               <div style={{position:'absolute',top:'-12px',left:'20px',background:'linear-gradient(135deg,#C9A84C,#E8C97A)',color:'#0D1117',fontSize:'11px',fontWeight:'700',padding:'3px 12px',borderRadius:'20px'}}>BEST VALUE</div>
               <div className="serif" style={{fontSize:'32px',color:'var(--cream)',marginBottom:'4px',marginTop:'8px'}}>$69.99</div>
               <div style={{fontSize:'15px',fontWeight:'600',marginBottom:'8px',color:'var(--cream)'}}>Deck + Excel Bundle</div>
-              <div style={{fontSize:'13px',color:'var(--slate)',marginBottom:'20px',lineHeight:'1.6'}}>Everything above plus the full Excel financial model with DCF.</div>
-              {['Clean investor deck','Full Excel model','DCF valuation','Deal assumptions','Key metrics dashboard'].map(f=>(
+              <div style={{fontSize:'13px',color:'var(--slate)',marginBottom:'20px',lineHeight:'1.6'}}>Clean deck + the full 4-tab Excel model with DCF valuation and deal assumptions.</div>
+              {['Clean 8-slide deck','Full Excel model','DCF valuation tab','Deal assumptions & earnout','Key metrics dashboard'].map(f=>(
                 <div className="check-row" key={f}><span className="check-icon">✓</span>{f}</div>
               ))}
               <div style={{marginTop:'20px'}}>
@@ -1079,7 +1373,18 @@ function ResultView({formData,purchases,onPay}){
               </div>
             </div>
           </div>
-          <div style={{textAlign:'center',marginTop:'12px',fontSize:'13px',color:'var(--slate)'}}>🔒 Secured by Stripe · Apple Pay & Google Pay accepted · Files delivered instantly</div>
+
+          {/* Excel add-on if deck already bought */}
+          {purchases.deck&&!purchases.excel&&(
+            <div style={{background:'rgba(201,168,76,0.05)',border:'1px solid rgba(201,168,76,0.2)',borderRadius:'12px',padding:'16px 20px',marginTop:'12px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'12px'}}>
+              <div>
+                <div style={{fontWeight:'600',fontSize:'14px',color:'var(--cream)',marginBottom:'3px'}}>Add the Excel Model</div>
+                <div style={{fontSize:'13px',color:'var(--slate)'}}>You already own the deck — add the financial model for just $29.99</div>
+              </div>
+              <button className="btn-gold" style={{padding:'10px 20px',fontSize:'13px'}} onClick={()=>onPay('excel')}>Add Excel — $29.99</button>
+            </div>
+          )}
+          <div style={{textAlign:'center',marginTop:'14px',fontSize:'13px',color:'var(--slate)'}}>🔒 Secured by Stripe · Apple Pay & Google Pay accepted · Files delivered instantly</div>
         </div>
       )}
     </div>
