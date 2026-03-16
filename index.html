@@ -161,6 +161,12 @@ input[type=range]:focus{box-shadow:none;border:none}
 .tip-box a{color:var(--gold);text-decoration:none;display:inline-block;margin-top:8px;font-size:11px}
 .tip-box a:hover{text-decoration:underline}
 .tip-wrap:hover .tip-box{display:block}
+.profile-sub-card{background:var(--navy2);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:12px;transition:border-color 0.2s}
+.profile-sub-card:hover{border-color:rgba(201,168,76,0.3)}
+.slide-thumb-wrap{cursor:pointer;border-radius:10px;overflow:hidden;border:2px solid transparent;transition:all 0.18s}
+.slide-thumb-wrap:hover{border-color:rgba(201,168,76,0.4);transform:translateY(-1px)}
+.slide-thumb-wrap.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.admin-login-modal{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;backdrop-filter:blur(4px)}
 </style>
 </head>
 <body>
@@ -193,6 +199,16 @@ const EMPTY_FORM = {
   transition:'Yes',transitionDur:'3 months',dealBreakers:'',
   dealStruct:'Open',confidential:'No',
   ownerName:'',ownerEmail:'',ownerPhone:'',
+};
+
+/* ── LocalStorage Helpers ───────────────────────────────── */
+const LS={
+  getUsers:()=>JSON.parse(localStorage.getItem('er_users')||'{}'),
+  saveUsers:u=>localStorage.setItem('er_users',JSON.stringify(u)),
+  getCurrent:()=>localStorage.getItem('er_current')||null,
+  setCurrent:e=>e?localStorage.setItem('er_current',e):localStorage.removeItem('er_current'),
+  getSubs:()=>JSON.parse(localStorage.getItem('er_subs')||'[]'),
+  saveSubs:s=>localStorage.setItem('er_subs',JSON.stringify(s)),
 };
 
 const SAMPLE_SUBMISSIONS = [
@@ -572,8 +588,13 @@ function generateExcel(data){
 /* ── App ────────────────────────────────────────────────── */
 function App(){
   const [view,setView]=useState('landing');
-  const [user,setUser]=useState(null);
+  const [user,setUser]=useState(()=>{
+    const cur=LS.getCurrent();
+    if(!cur)return null;
+    return LS.getUsers()[cur]||null;
+  });
   const [formData,setFormData]=useState({});
+  const [editingSubId,setEditingSubId]=useState(null);
   const [payModal,setPayModal]=useState(false);
   const [payProduct,setPayProduct]=useState(null);
   const [purchases,setPurchases]=useState({deck:false,excel:false});
@@ -581,8 +602,63 @@ function App(){
   const [adminTab,setAdminTab]=useState('dashboard');
   const [selectedSub,setSelectedSub]=useState(null);
   const [submissions,setSubmissions]=useState(SAMPLE_SUBMISSIONS);
+  const [userSubs,setUserSubs]=useState(()=>{
+    const cur=LS.getCurrent();
+    if(!cur)return[];
+    return LS.getSubs().filter(s=>s.userId===cur);
+  });
 
   const notify=msg=>{setNotification(msg);setTimeout(()=>setNotification(null),3800)};
+
+  const handleLogin=u=>{
+    setUser(u);
+    LS.setCurrent(u.email);
+    if(u.role==='admin'){
+      setView('admin');
+    } else {
+      setUserSubs(LS.getSubs().filter(s=>s.userId===u.email));
+      setView('form');
+    }
+  };
+
+  const handleLogout=()=>{
+    setUser(null);
+    LS.setCurrent(null);
+    setUserSubs([]);
+    setFormData({});
+    setEditingSubId(null);
+    setPurchases({deck:false,excel:false});
+    setView('landing');
+  };
+
+  const persistSub=(formD,purc,subId)=>{
+    if(!user||user.role==='admin')return subId;
+    const allSubs=LS.getSubs();
+    const id=subId||Date.now().toString();
+    const sub={
+      id,userId:user.email,formData:formD,purchases:purc,
+      bizName:formD.bizName||'Untitled Business',industry:formD.industry,
+      asking:formD.asking||'—',rev1:formD.rev1||'—',
+      owner:formD.ownerName||user.name,email:formD.ownerEmail||user.email,phone:formD.ownerPhone||user.phone||'',
+      date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+    };
+    const updated=allSubs.find(s=>s.id===id)
+      ?allSubs.map(s=>s.id===id?sub:s)
+      :[...allSubs,sub];
+    LS.saveSubs(updated);
+    setUserSubs(updated.filter(s=>s.userId===user.email));
+    return id;
+  };
+
+  const handleFormDone=d=>{
+    setFormData(d);
+    if(user&&user.role!=='admin'){
+      const id=editingSubId||Date.now().toString();
+      persistSub(d,purchases,id);
+      if(!editingSubId)setEditingSubId(id);
+    }
+    setView('result');
+  };
 
   const handlePay=product=>{setPayProduct(product);setPayModal(true)};
   const handlePayConfirm=()=>{
@@ -592,18 +668,47 @@ function App(){
     if(payProduct==='bundle'){np.deck=true;np.excel=true;}
     setPurchases(np);
     setPayModal(false);
+    if(user&&editingSubId){
+      const allSubs=LS.getSubs();
+      const updated=allSubs.map(s=>s.id===editingSubId?{...s,purchases:np}:s);
+      LS.saveSubs(updated);
+      setUserSubs(updated.filter(s=>s.userId===user.email));
+    }
     if(payProduct==='deck'||payProduct==='bundle'){generatePPTX(formData,false);notify('✓ Clean deck downloaded!');}
     if(payProduct==='excel'||payProduct==='bundle'){generateExcel(formData);notify('✓ Excel model downloaded!');}
   };
 
+  const handleEditSub=sub=>{
+    setFormData(sub.formData);
+    setPurchases(sub.purchases||{deck:false,excel:false});
+    setEditingSubId(sub.id);
+    setView('form');
+  };
+
+  const handleNewSubmission=()=>{
+    setFormData({});
+    setPurchases({deck:false,excel:false});
+    setEditingSubId(null);
+    setView(user?'form':'auth');
+  };
+
+  const allAdminSubs=[...SAMPLE_SUBMISSIONS,...LS.getSubs().map((s,i)=>({
+    id:1000+i,bizName:s.bizName,owner:s.owner||s.formData?.ownerName||'—',
+    email:s.email||s.formData?.ownerEmail||'—',phone:s.phone||s.formData?.ownerPhone||'—',
+    industry:s.industry||'—',rev1:s.rev1||s.formData?.rev1||'—',asking:s.asking||s.formData?.asking||'—',
+    date:s.date,deckPaid:s.purchases?.deck||false,excelPaid:s.purchases?.excel||false,
+    status:'New',notes:'',formData:s.formData,
+  }))];
+
   return(
     <div>
-      <Nav view={view} setView={setView} user={user} setUser={setUser}/>
-      {view==='landing'&&<Landing setView={setView}/>}
-      {view==='auth'&&<Auth onAuth={u=>{setUser(u);setView('form')}}/>}
-      {view==='form'&&<IntakeForm user={user} onDone={d=>{setFormData(d);setView('result')}}/>}
-      {view==='result'&&<ResultView formData={formData} purchases={purchases} onPay={handlePay}/>}
-      {view==='admin'&&<AdminDash adminTab={adminTab} setAdminTab={setAdminTab} submissions={submissions} setSubmissions={setSubmissions} selectedSub={selectedSub} setSelectedSub={setSelectedSub}/>}
+      <Nav view={view} setView={setView} user={user} onLogout={handleLogout} onGetStarted={handleNewSubmission}/>
+      {view==='landing'&&<Landing onGetStarted={handleNewSubmission}/>}
+      {view==='auth'&&<Auth onAuth={handleLogin}/>}
+      {view==='form'&&<IntakeForm user={user} initialData={formData} onDone={handleFormDone}/>}
+      {view==='result'&&<ResultView formData={formData} purchases={purchases} onPay={handlePay} user={user} setView={setView}/>}
+      {view==='profile'&&<ProfilePage user={user} userSubs={userSubs} onEdit={handleEditSub} onNew={handleNewSubmission} onDownloadDeck={sub=>{generatePPTX(sub.formData,false);notify('✓ Deck re-downloaded!');}} onDownloadExcel={sub=>{generateExcel(sub.formData);notify('✓ Excel re-downloaded!');}}/>}
+      {view==='admin'&&<AdminDash adminTab={adminTab} setAdminTab={setAdminTab} submissions={allAdminSubs} setSubmissions={setSubmissions} selectedSub={selectedSub} setSelectedSub={setSelectedSub}/>}
       {payModal&&<PayModal product={payProduct} onConfirm={handlePayConfirm} onClose={()=>setPayModal(false)}/>}
       {notification&&<div className="notification">{notification}</div>}
       <footer className="footer">
@@ -615,28 +720,36 @@ function App(){
   );
 }
 
-function Nav({view,setView,user,setUser}){
+function Nav({view,setView,user,onLogout,onGetStarted}){
   return(
     <nav className="nav">
       <div className="logo" onClick={()=>setView('landing')}>Exit<span>Ready</span></div>
       <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
-        {user&&<span style={{fontSize:'13px',color:'var(--slate)'}}>{user.name}</span>}
-        <button className="btn-ghost" style={{fontSize:'13px'}} onClick={()=>setView('admin')}>Admin</button>
-        {view==='landing'&&<button className="btn-gold" style={{fontSize:'13px',padding:'9px 22px'}} onClick={()=>setView('auth')}>List My Business →</button>}
-        {user&&<button className="btn-outline" style={{fontSize:'13px',padding:'8px 16px'}} onClick={()=>{setUser(null);setView('landing')}}>Sign Out</button>}
+        {user&&user.role!=='admin'&&(
+          <button className="btn-ghost" style={{fontSize:'13px',color:view==='profile'?'var(--gold)':'var(--slate)'}} onClick={()=>setView('profile')}>My Profile</button>
+        )}
+        {user&&user.role==='admin'&&(
+          <button className="btn-ghost" style={{fontSize:'13px',color:'var(--gold)'}} onClick={()=>setView('admin')}>Admin Dashboard</button>
+        )}
+        {(!user||user.role!=='admin')&&(
+          <button className="btn-ghost" style={{fontSize:'13px'}} onClick={()=>setView('auth')}>Admin</button>
+        )}
+        {!user&&<button className="btn-outline" style={{fontSize:'13px',padding:'8px 18px'}} onClick={()=>setView('auth')}>Log In</button>}
+        {!user&&<button className="btn-gold" style={{fontSize:'13px',padding:'9px 22px'}} onClick={onGetStarted}>List My Business →</button>}
+        {user&&<button className="btn-outline" style={{fontSize:'13px',padding:'8px 16px'}} onClick={onLogout}>Sign Out</button>}
       </div>
     </nav>
   );
 }
 
-function Landing({setView}){
+function Landing({onGetStarted}){
   return(
     <div>
       <div className="hero">
         <div className="badge badge-gold" style={{marginBottom:'22px'}}>Buyer-Ready in Minutes</div>
         <h1>Turn Your Business Into<br/><em>An Investor-Ready Deal</em></h1>
         <p>Submit your business details once. Walk away with a professional investor deck and financial model — the same materials used in seven-figure acquisitions, built for Main Street businesses.</p>
-        <button className="btn-gold" style={{fontSize:'16px',padding:'16px 40px'}} onClick={()=>setView('auth')}>Get My Investor Deck →</button>
+        <button className="btn-gold" style={{fontSize:'16px',padding:'16px 40px'}} onClick={onGetStarted}>Get My Investor Deck →</button>
         <div style={{marginTop:'18px',fontSize:'13px',color:'var(--slate)'}}>Free watermarked preview · Clean deck $49.99 · No broker. No commission.</div>
       </div>
       <div className="stat-bar">
@@ -721,6 +834,30 @@ function Auth({onAuth}){
   const [phone,setPhone]=useState('');
   const [contactTime,setContactTime]=useState('');
   const [pass,setPass]=useState('');
+  const [error,setError]=useState('');
+
+  const handleSubmit=()=>{
+    setError('');
+    if(!email||!pass){setError('Email and password are required.');return;}
+    // Admin login
+    if(email.toLowerCase()==='admin'&&pass==='Admin123'){
+      onAuth({name:'Administrator',email:'Admin',role:'admin'});
+      return;
+    }
+    const users=LS.getUsers();
+    if(mode==='signup'){
+      if(users[email]){setError('An account with this email already exists. Sign in instead.');return;}
+      const u={name:name||email.split('@')[0],email,phone,contactTime,password:pass};
+      users[email]=u;
+      LS.saveUsers(users);
+      onAuth(u);
+    } else {
+      const u=users[email];
+      if(!u||u.password!==pass){setError('Invalid email or password.');return;}
+      onAuth(u);
+    }
+  };
+
   return(
     <div className="auth-box">
       <div style={{textAlign:'center',marginBottom:'32px'}}>
@@ -751,18 +888,29 @@ function Auth({onAuth}){
           </div>
         </>)}
         <div className="field-group"><label>Password</label>
-          <input type="password" placeholder="••••••••" value={pass} onChange={e=>setPass(e.target.value)}/>
+          <input type="password" placeholder="••••••••" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSubmit()}/>
         </div>
-        <button className="btn-gold" style={{width:'100%',padding:'14px',marginTop:'8px',fontSize:'15px'}} onClick={()=>{if(email)onAuth({name:name||email.split('@')[0],email,phone})}}>
+        {error&&<div style={{background:'rgba(232,118,90,0.08)',border:'1px solid rgba(232,118,90,0.25)',borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'var(--red)'}}>{error}</div>}
+        <button className="btn-gold" style={{width:'100%',padding:'14px',marginTop:'8px',fontSize:'15px'}} onClick={handleSubmit}>
           {mode==='signup'?'Create Account & Continue →':'Sign In →'}
         </button>
         <div style={{textAlign:'center',margin:'18px 0 6px',color:'var(--slate)',fontSize:'13px'}}>or</div>
-        <button className="btn-outline" style={{width:'100%',padding:'12px',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px'}} onClick={()=>onAuth({name:'Google User',email:'user@gmail.com',phone:''})}>
+        <button className="btn-outline" style={{width:'100%',padding:'12px',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px'}} onClick={()=>{
+          const gUser={name:'Google User',email:'google_'+Date.now()+'@gmail.com',phone:''};
+          const users=LS.getUsers();
+          users[gUser.email]={...gUser,password:'google-oauth'};
+          LS.saveUsers(users);
+          onAuth(gUser);
+        }}>
           <span style={{fontSize:'16px',fontWeight:'700'}}>G</span> Continue with Google
         </button>
       </div>
-      <div className="auth-toggle" onClick={()=>setMode(mode==='signup'?'login':'signup')}>
+      <div className="auth-toggle" onClick={()=>{setMode(mode==='signup'?'login':'signup');setError('');}}>
         {mode==='signup'?<>Already have an account? <span>Sign in</span></>:<>New here? <span>Create account</span></>}
+      </div>
+      <div style={{textAlign:'center',marginTop:'20px',padding:'14px',background:'rgba(201,168,76,0.04)',borderRadius:'10px',border:'1px solid rgba(201,168,76,0.12)'}}>
+        <div style={{fontSize:'11px',color:'var(--slate)',marginBottom:'4px',textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:'600'}}>Admin Access</div>
+        <div style={{fontSize:'12px',color:'var(--slate)'}}>Username: <span style={{color:'var(--gold)'}}>Admin</span> · Password: <span style={{color:'var(--gold)'}}>Admin123</span></div>
       </div>
     </div>
   );
@@ -770,14 +918,13 @@ function Auth({onAuth}){
 
 /* ── Intake Form — Field components are hoisted above App so
    React never unmounts them on state change (fixes focus bug) ── */
-function IntakeForm({user,onDone}){
+function IntakeForm({user,initialData,onDone}){
   const [step,setStep]=useState(0);
-  const [data,setData]=useState({
-    ...EMPTY_FORM,
-    ownerName:user?.name||'',
-    ownerEmail:user?.email||'',
-    ownerPhone:user?.phone||'',
-  });
+  const [data,setData]=useState(()=>
+    Object.keys(initialData||{}).length>0
+      ? initialData
+      : {...EMPTY_FORM,ownerName:user?.name||'',ownerEmail:user?.email||'',ownerPhone:user?.phone||''}
+  );
 
   // Stable setter — never changes reference
   const set=useCallback((k,v)=>setData(d=>({...d,[k]:v})),[]);
@@ -989,8 +1136,9 @@ function IntakeForm({user,onDone}){
   );
 }
 
-function ResultView({formData,purchases,onPay}){
+function ResultView({formData,purchases,onPay,user,setView}){
   const [tab,setTab]=useState('deck');
+  const [activeSlide,setActiveSlide]=useState(0);
 
   /* ── 5 rendered slide mini-previews ── */
   const SlideThumb=({title,children,locked})=>(
@@ -1085,6 +1233,93 @@ function ResultView({formData,purchases,onPay}){
         <div key={i} style={{fontSize:'7px',color:'var(--slate)',padding:'2px 0',borderBottom:'1px solid rgba(30,46,66,0.5)'}}>▸ {c}</div>
       ))}
       {![formData.comp1,formData.comp2,formData.comp3].filter(Boolean).length&&<div style={{fontSize:'7px',color:'var(--slate)'}}>▸ See full competitive analysis</div>}
+    </div>
+  );
+
+  const largeSlideContents=[
+    /* 0 – Cover */
+    <div style={{position:'relative',zIndex:1}}>
+      <div style={{fontSize:'10px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'10px',textTransform:'uppercase'}}>Confidential Investment Summary</div>
+      <div className="serif" style={{fontSize:'34px',color:'var(--cream)',marginBottom:'6px',lineHeight:'1.1'}}>{formData.bizName||'Your Business'}</div>
+      <div style={{fontSize:'14px',color:'var(--slate)',marginBottom:'20px'}}>{formData.industry||'Industry'} · Est. {formData.founded||'—'} · {formData.location||'—'}</div>
+      <div style={{height:'1px',background:'rgba(201,168,76,0.4)',marginBottom:'20px'}}/>
+      <div style={{display:'flex',gap:'32px',flexWrap:'wrap'}}>
+        {[['Asking',formData.asking||'TBD'],['Revenue',formData.rev1||'—'],['EBITDA',formData.ebitda1||'—'],['Employees',(formData.employees||'—')+' FT']].map(([l,v])=>(
+          <div key={l}><div style={{fontSize:'10px',color:'var(--slate)',marginBottom:'3px',letterSpacing:'0.04em',textTransform:'uppercase'}}>{l}</div><div style={{fontSize:'18px',fontWeight:'600',color:'var(--gold)'}}>{v}</div></div>
+        ))}
+      </div>
+    </div>,
+    /* 1 – Executive Summary */
+    <div style={{position:'relative',zIndex:1,width:'100%'}}>
+      <div style={{fontSize:'9px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'8px',textTransform:'uppercase'}}>Executive Summary</div>
+      <div className="serif" style={{fontSize:'24px',color:'var(--cream)',marginBottom:'14px'}}>{formData.bizName||'Business Overview'}</div>
+      {[
+        `Business: ${(formData.description||'—').substring(0,100)}${formData.description&&formData.description.length>100?'...':''}`,
+        `Revenue: ${formData.rev1||'—'} (TTM)  |  Gross Margin: ${formData.grossMargin||'—'}  |  EBITDA: ${formData.ebitda1||'—'}`,
+        `Team: ${formData.employees||'—'} FT employees  |  Owner Dependency: ${formData.ownerDep||'—'}/5`,
+        `Customers: ${formData.activeCust||'—'} active clients  |  Avg. relationship: ${formData.avgContract||'—'}`,
+        `Structure: ${formData.structure||'—'}  |  Founded: ${formData.founded||'—'}  |  ${formData.location||'—'}`,
+        `Deal: ${formData.asking||'—'}  |  ${formData.dealStruct||'—'}  |  Close in ${formData.timeline||'—'}`,
+      ].map((b,i)=>(
+        <div key={i} style={{display:'flex',gap:'8px',padding:'5px 0',borderBottom:'1px solid rgba(30,46,66,0.5)'}}>
+          <span style={{color:'var(--gold)',flexShrink:0}}>▸</span>
+          <span style={{fontSize:'12px',color:i===0?'var(--cream)':'var(--slate)',lineHeight:'1.5'}}>{b}</span>
+        </div>
+      ))}
+    </div>,
+    /* 2 – Financial Highlights */
+    <div style={{position:'relative',zIndex:1,width:'100%'}}>
+      <div style={{fontSize:'9px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'8px',textTransform:'uppercase'}}>Financial Highlights</div>
+      <div className="serif" style={{fontSize:'24px',color:'var(--cream)',marginBottom:'14px'}}>3-Year Performance Snapshot</div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12px'}}>
+        <tbody>
+        {[['Metric','Year 3','Year 2','Year 1 (TTM)'],['Revenue',formData.rev3||'—',formData.rev2||'—',formData.rev1||'—'],['EBITDA',formData.ebitda3||'—',formData.ebitda2||'—',formData.ebitda1||'—'],['Gross Margin',formData.grossMargin||'—',formData.grossMargin||'—',formData.grossMargin||'—'],['MRR','—','—',formData.mrr||'—']].map((row,ri)=>(
+          <tr key={ri}>{row.map((cell,ci)=>(
+            <td key={ci} style={{padding:'8px 12px',border:'1px solid var(--border)',background:ri===0?'var(--navy3)':ri%2===0?'rgba(26,37,53,0.6)':'var(--navy)',color:ri===0?'var(--gold)':ci===0?'var(--slate)':'var(--cream)',fontWeight:ri===0||ci===3?'600':'400'}}>{cell}</td>
+          ))}</tr>
+        ))}
+        </tbody>
+      </table>
+    </div>,
+    /* 3 – Operations */
+    <div style={{position:'relative',zIndex:1,width:'100%'}}>
+      <div style={{fontSize:'9px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'8px',textTransform:'uppercase'}}>Operations Snapshot</div>
+      <div className="serif" style={{fontSize:'24px',color:'var(--cream)',marginBottom:'14px'}}>Day-to-Day Business Overview</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
+        {[['Owner Dependency',`${formData.ownerDep||'—'} / 5`],['Management Team',formData.hasMgmt||'—'],['Active Customers',formData.activeCust||'—'],['Avg. Contract',formData.avgContract||'—'],['SOPs Documented',formData.hasSOPs||'—'],['Customer Concentration',formData.custConcentration||'—'],['Key Tech',(formData.techStack||'—').substring(0,45)],['IP / Assets',(formData.ip||'None').substring(0,45)]].map(([k,v])=>(
+          <div key={k} style={{background:'var(--navy3)',borderRadius:'6px',padding:'8px 12px',border:'1px solid var(--border)'}}>
+            <div style={{fontSize:'10px',color:'var(--slate)',marginBottom:'2px',textTransform:'uppercase',letterSpacing:'0.04em'}}>{k}</div>
+            <div style={{fontSize:'13px',fontWeight:'600',color:'var(--cream)'}}>{v}</div>
+          </div>
+        ))}
+      </div>
+    </div>,
+    /* 4 – Market & Growth */
+    <div style={{position:'relative',zIndex:1,width:'100%'}}>
+      <div style={{fontSize:'9px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'8px',textTransform:'uppercase'}}>Market Position & Growth</div>
+      <div className="serif" style={{fontSize:'24px',color:'var(--cream)',marginBottom:'14px'}}>Competitive Landscape & Opportunity</div>
+      {[['Competitive Advantage',formData.moat||'See supporting materials'],['Total Addressable Market',formData.tam||'See supporting materials'],['Top Growth Opportunities',(formData.growthOps||'See supporting materials').substring(0,130)],['Top Competitors',[formData.comp1,formData.comp2,formData.comp3].filter(Boolean).join(' · ')||'See supporting materials']].map(([title,content],i)=>(
+        <div key={i} style={{background:i%2===0?'var(--navy3)':'var(--navy2)',borderRadius:'6px',padding:'8px 12px',marginBottom:'7px',border:'1px solid var(--border)'}}>
+          <div style={{fontSize:'9px',color:'var(--gold)',fontWeight:'700',letterSpacing:'0.05em',textTransform:'uppercase',marginBottom:'3px'}}>{title}</div>
+          <div style={{fontSize:'12px',color:'var(--slate)',lineHeight:'1.5'}}>{content}</div>
+        </div>
+      ))}
+    </div>,
+  ];
+
+  const isLocked=idx=>idx>=5&&!purchases.deck;
+
+  const DeckSlidePreview=({idx})=>(
+    <div className="deck-slide">
+      {!isLocked(idx)&&<div className="watermark"><div className="watermark-text">ExitReady — PREVIEW ONLY<br/>ExitReady — PREVIEW ONLY</div></div>}
+      {isLocked(idx)?(
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:'14px',position:'relative',zIndex:1}}>
+          <div style={{fontSize:'44px'}}>🔒</div>
+          <div className="serif" style={{fontSize:'28px',color:'var(--cream)'}}>Slide Locked</div>
+          <p style={{color:'var(--slate)',fontSize:'14px',textAlign:'center',maxWidth:'300px',lineHeight:'1.6'}}>Purchase the clean deck to unlock all 8 slides</p>
+          <button className="btn-gold" style={{padding:'12px 30px'}} onClick={()=>setTab('unlock')}>Unlock Now →</button>
+        </div>
+      ):(largeSlideContents[idx]||largeSlideContents[0])}
     </div>
   );
 
@@ -1218,6 +1453,9 @@ function ResultView({formData,purchases,onPay}){
         <div style={{width:'68px',height:'68px',borderRadius:'50%',background:'rgba(82,183,136,0.1)',border:'2px solid var(--green)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'28px',margin:'0 auto 20px'}}>✓</div>
         <h2 className="serif" style={{fontSize:'38px',color:'var(--cream)',marginBottom:'12px'}}>Your Deck Is Ready</h2>
         <p style={{color:'var(--slate)',maxWidth:'500px',margin:'0 auto',fontSize:'15px',lineHeight:'1.7'}}>Your watermarked preview is below. Pay once to unlock your clean deck — or grab the bundle and get the full Excel financial model too.</p>
+        {user&&<div style={{marginTop:'14px',fontSize:'13px',color:'var(--green)',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+          <span>✓</span><span>Saved to your account — re-download anytime from <button className="btn-ghost" style={{color:'var(--gold)',fontSize:'13px',padding:'0',textDecoration:'underline'}} onClick={()=>setView('profile')}>My Profile</button></span>
+        </div>}
       </div>
 
       {/* Tabs */}
@@ -1232,25 +1470,12 @@ function ResultView({formData,purchases,onPay}){
       {/* ── DECK PREVIEW TAB ── */}
       {tab==='deck'&&(
         <div>
-          {/* Large cover slide */}
+          {/* Large active slide preview */}
+          <div style={{marginBottom:'8px',display:'flex',alignItems:'center',gap:'10px'}}>
+            <span style={{fontSize:'12px',color:'var(--slate)'}}>Viewing: <span style={{color:'var(--gold)',fontWeight:'500'}}>{slides[activeSlide]?.title}</span></span>
+          </div>
           <div className="deck-preview">
-            <div className="deck-slide">
-              <div className="watermark"><div className="watermark-text">ExitReady — PREVIEW ONLY<br/>ExitReady — PREVIEW ONLY</div></div>
-              <div style={{position:'relative',zIndex:1}}>
-                <div style={{fontSize:'10px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'10px',textTransform:'uppercase'}}>Confidential Investment Summary</div>
-                <div className="serif" style={{fontSize:'34px',color:'var(--cream)',marginBottom:'6px',lineHeight:'1.1'}}>{formData.bizName||'Your Business'}</div>
-                <div style={{fontSize:'14px',color:'var(--slate)',marginBottom:'20px'}}>{formData.industry||'Industry'} · Est. {formData.founded||'—'} · {formData.location||'—'}</div>
-                <div style={{height:'1px',background:'rgba(201,168,76,0.4)',marginBottom:'20px'}}/>
-                <div style={{display:'flex',gap:'32px',flexWrap:'wrap'}}>
-                  {[['Asking',formData.asking||'TBD'],['Revenue',formData.rev1||'—'],['EBITDA',formData.ebitda1||'—'],['Employees',(formData.employees||'—')+' FT']].map(([l,v])=>(
-                    <div key={l}>
-                      <div style={{fontSize:'10px',color:'var(--slate)',marginBottom:'3px',letterSpacing:'0.04em',textTransform:'uppercase'}}>{l}</div>
-                      <div style={{fontSize:'18px',fontWeight:'600',color:'var(--gold)'}}>{v}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <DeckSlidePreview idx={activeSlide}/>
           </div>
 
           {/* 8-slide thumbnail strip — 5 visible, 3 locked */}
@@ -1260,12 +1485,16 @@ function ResultView({formData,purchases,onPay}){
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'8px'}}>
             {slides.slice(0,4).map((s,i)=>(
-              <SlideThumb key={i} title={s.title} locked={s.locked}>{s.content}</SlideThumb>
+              <div key={i} className={`slide-thumb-wrap${activeSlide===i?' active':''}`} onClick={()=>setActiveSlide(i)}>
+                <SlideThumb title={s.title} locked={s.locked}>{s.content}</SlideThumb>
+              </div>
             ))}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px'}}>
             {slides.slice(4,8).map((s,i)=>(
-              <SlideThumb key={i+4} title={s.title} locked={s.locked}>{s.content}</SlideThumb>
+              <div key={i+4} className={`slide-thumb-wrap${activeSlide===i+4?' active':''}`} onClick={()=>setActiveSlide(i+4)}>
+                <SlideThumb title={s.title} locked={s.locked}>{s.content}</SlideThumb>
+              </div>
             ))}
           </div>
 
@@ -1409,6 +1638,87 @@ function ResultView({formData,purchases,onPay}){
   );
 }
 
+function ProfilePage({user,userSubs,onEdit,onNew,onDownloadDeck,onDownloadExcel}){
+  return(
+    <div style={{maxWidth:'860px',margin:'0 auto',padding:'48px 24px'}}>
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'start',marginBottom:'40px',flexWrap:'wrap',gap:'16px'}}>
+        <div>
+          <div className="section-label" style={{marginBottom:'6px'}}>Your Account</div>
+          <h2 className="serif" style={{fontSize:'36px',color:'var(--cream)',marginBottom:'6px',letterSpacing:'-0.02em'}}>{user?.name}</h2>
+          <div style={{fontSize:'14px',color:'var(--slate)'}}>{user?.email}{user?.phone&&` · ${user.phone}`}</div>
+        </div>
+        <button className="btn-gold" style={{padding:'12px 26px',fontSize:'14px'}} onClick={onNew}>+ New Submission</button>
+      </div>
+
+      {/* Stats */}
+      {userSubs.length>0&&(
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'16px',marginBottom:'36px'}}>
+          {[['Submissions',userSubs.length],['Decks Purchased',userSubs.filter(s=>s.purchases?.deck).length],['Excel Models',userSubs.filter(s=>s.purchases?.excel).length]].map(([l,n])=>(
+            <div key={l} className="admin-stat"><div className="num">{n}</div><div className="lbl">{l}</div></div>
+          ))}
+        </div>
+      )}
+
+      {/* Submissions label */}
+      <div style={{fontSize:'11px',fontWeight:'600',color:'var(--slate)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:'16px'}}>
+        {userSubs.length>0?`${userSubs.length} Saved Submission${userSubs.length>1?'s':''}` :'Saved Submissions'}
+      </div>
+
+      {userSubs.length===0?(
+        <div className="card" style={{textAlign:'center',padding:'56px 24px'}}>
+          <div style={{fontSize:'44px',marginBottom:'18px'}}>📋</div>
+          <div className="serif" style={{fontSize:'26px',color:'var(--cream)',marginBottom:'10px'}}>No Submissions Yet</div>
+          <p style={{color:'var(--slate)',maxWidth:'380px',margin:'0 auto 28px',lineHeight:'1.75',fontSize:'14px'}}>
+            Complete the intake form to generate your investor deck. Your submissions are saved here for easy re-download and editing.
+          </p>
+          <button className="btn-gold" style={{padding:'13px 32px',fontSize:'15px'}} onClick={onNew}>Start My Submission →</button>
+        </div>
+      ):(
+        <div>
+          {[...userSubs].reverse().map(sub=>(
+            <div key={sub.id} className="profile-sub-card">
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'start',flexWrap:'wrap',gap:'14px'}}>
+                <div style={{flex:1,minWidth:'220px'}}>
+                  <div style={{fontSize:'18px',fontWeight:'600',color:'var(--cream)',marginBottom:'4px'}}>{sub.bizName}</div>
+                  <div style={{fontSize:'13px',color:'var(--slate)',marginBottom:'12px'}}>{sub.industry} · Saved {sub.date}</div>
+                  <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                    <span className={`badge ${sub.purchases?.deck?'badge-green':'badge-gold'}`}>
+                      {sub.purchases?.deck?'✓ Investor Deck':'Deck — Not Purchased'}
+                    </span>
+                    <span className={`badge ${sub.purchases?.excel?'badge-green':'badge-gold'}`}>
+                      {sub.purchases?.excel?'✓ Excel Model':'Excel — Not Purchased'}
+                    </span>
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:'8px',flexWrap:'wrap',flexShrink:0,alignItems:'center'}}>
+                  {sub.purchases?.deck&&(
+                    <button className="btn-outline" style={{fontSize:'12px',padding:'8px 14px'}} onClick={()=>onDownloadDeck(sub)}>↓ Deck (.pptx)</button>
+                  )}
+                  {sub.purchases?.excel&&(
+                    <button className="btn-outline" style={{fontSize:'12px',padding:'8px 14px'}} onClick={()=>onDownloadExcel(sub)}>↓ Excel (.xlsx)</button>
+                  )}
+                  <button className="btn-gold" style={{fontSize:'13px',padding:'9px 18px'}} onClick={()=>onEdit(sub)}>✏ Edit & Regenerate</button>
+                </div>
+              </div>
+
+              {/* Key metrics row */}
+              <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--border)',display:'flex',gap:'24px',flexWrap:'wrap'}}>
+                {[['Revenue',sub.formData?.rev1||'—'],['EBITDA',sub.formData?.ebitda1||'—'],['Asking',sub.formData?.asking||'—'],['Employees',sub.formData?.employees||'—']].map(([l,v])=>(
+                  <div key={l}>
+                    <div style={{fontSize:'10px',color:'var(--slate)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'2px'}}>{l}</div>
+                    <div style={{fontSize:'13px',fontWeight:'600',color:'var(--gold)'}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PayModal({product,onConfirm,onClose}){
   const prices={deck:'$49.99',excel:'$29.99',bundle:'$69.99'};
   const labels={deck:'Clean Investor Deck',excel:'Excel Financial Model',bundle:'Deck + Excel Bundle'};
@@ -1460,11 +1770,40 @@ function PayModal({product,onConfirm,onClose}){
 
 function AdminDash({adminTab,setAdminTab,submissions,setSubmissions,selectedSub,setSelectedSub}){
   const [filter,setFilter]=useState('All');
+  const [industryFilter,setIndustryFilter]=useState('All');
+  const [purchaseFilter,setPurchaseFilter]=useState('All');
   const STATUSES=['All','New','Contacted','In Diligence','Passed','Closed'];
-  const filtered=filter==='All'?submissions:submissions.filter(s=>s.status===filter);
+  const industries=['All',...[...new Set(submissions.map(s=>s.industry).filter(Boolean))]];
+
+  const filtered=submissions.filter(s=>{
+    if(filter!=='All'&&s.status!==filter)return false;
+    if(industryFilter!=='All'&&s.industry!==industryFilter)return false;
+    if(purchaseFilter==='Deck Paid'&&!s.deckPaid)return false;
+    if(purchaseFilter==='Excel Paid'&&!s.excelPaid)return false;
+    if(purchaseFilter==='Any Paid'&&!s.deckPaid&&!s.excelPaid)return false;
+    if(purchaseFilter==='Free Only'&&(s.deckPaid||s.excelPaid))return false;
+    return true;
+  });
+
   const totalRevenue=submissions.reduce((acc,s)=>{if(s.deckPaid)acc+=49.99;if(s.excelPaid)acc+=29.99;return acc;},0);
   const paidCount=submissions.filter(s=>s.deckPaid||s.excelPaid).length;
   const STATUS_COLORS={New:'var(--gold)',Contacted:'var(--green)','In Diligence':'#6BAEE8',Passed:'var(--red)',Closed:'var(--slate)'};
+
+  const exportToExcel=()=>{
+    if(typeof XLSX==='undefined'){alert('XLSX library not loaded.');return;}
+    const rows=[
+      ['Business Name','Owner','Email','Phone','Industry','Revenue (Yr1)','Asking Price','Date Submitted','Deck Purchased','Excel Purchased','Status','Notes'],
+      ...submissions.map(s=>[
+        s.bizName,s.owner,s.email,s.phone,s.industry,s.rev1,s.asking,s.date,
+        s.deckPaid?'Yes':'No',s.excelPaid?'Yes':'No',s.status||'New',s.notes||'',
+      ]),
+    ];
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:28},{wch:20},{wch:28},{wch:16},{wch:20},{wch:14},{wch:14},{wch:14},{wch:12},{wch:12},{wch:14},{wch:30}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,'Submissions',ws);
+    XLSX.writeFile(wb,'ExitReady_Submissions.xlsx');
+  };
 
   const updateStatus=(id,status)=>{
     setSubmissions(subs=>subs.map(s=>s.id===id?{...s,status}:s));
@@ -1532,13 +1871,24 @@ function AdminDash({adminTab,setAdminTab,submissions,setSubmissions,selectedSub,
 
       {adminTab==='submissions'&&(
         <div>
-          <div style={{display:'flex',gap:'8px',marginBottom:'20px',flexWrap:'wrap',alignItems:'center'}}>
+          {/* Status filters */}
+          <div style={{display:'flex',gap:'8px',marginBottom:'12px',flexWrap:'wrap',alignItems:'center'}}>
             {STATUSES.map(s=>(
               <button key={s} className={`tab${filter===s?' active':''}`} onClick={()=>setFilter(s)}>
                 {s} ({s==='All'?submissions.length:submissions.filter(x=>x.status===s).length})
               </button>
             ))}
-            <button className="btn-outline" style={{marginLeft:'auto',fontSize:'12px',padding:'7px 14px'}}>Export CSV</button>
+          </div>
+          {/* Industry + purchase filters + export */}
+          <div style={{display:'flex',gap:'8px',marginBottom:'20px',flexWrap:'wrap',alignItems:'center'}}>
+            <select value={industryFilter} onChange={e=>setIndustryFilter(e.target.value)} style={{width:'auto',padding:'6px 10px',fontSize:'12px'}}>
+              {industries.map(i=><option key={i}>{i==='All'?'All Industries':i}</option>)}
+            </select>
+            <select value={purchaseFilter} onChange={e=>setPurchaseFilter(e.target.value)} style={{width:'auto',padding:'6px 10px',fontSize:'12px'}}>
+              {['All','Any Paid','Deck Paid','Excel Paid','Free Only'].map(p=><option key={p}>{p}</option>)}
+            </select>
+            <span style={{fontSize:'12px',color:'var(--slate)',marginLeft:'4px'}}>{filtered.length} result{filtered.length!==1?'s':''}</span>
+            <button className="btn-gold" style={{marginLeft:'auto',fontSize:'12px',padding:'7px 16px'}} onClick={exportToExcel}>↓ Export to Excel</button>
           </div>
           <div className="card" style={{padding:0,overflow:'hidden'}}>
             <div style={{overflowX:'auto'}}>
