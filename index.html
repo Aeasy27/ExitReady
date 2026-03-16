@@ -1067,14 +1067,10 @@ function Auth({onAuth}){
         },
       });
       if(e){setError(e.message);setBusy(false);return;}
-      if(data.session&&data.user){
-        // Email confirmation disabled — signed in immediately
-        onAuth({id:data.user.id,email:data.user.email,name:name||email.split('@')[0],phone});
-      } else {
-        // Email confirmation required
-        setInfo('Account created! Check your inbox for a confirmation link, then sign in.');
-        setMode('login');
-      }
+      // Sign in immediately after account creation (email verification temporarily disabled)
+      const {data:sd,error:se}=await supabase.auth.signInWithPassword({email,password:pass});
+      if(se||!sd.user){setError('Account created — please sign in.');setMode('login');setBusy(false);return;}
+      onAuth({id:sd.user.id,email:sd.user.email,name:name||email.split('@')[0],phone});
     } else {
       const {data,error:e}=await supabase.auth.signInWithPassword({email,password:pass});
       if(e){setError(e.message);setBusy(false);return;}
