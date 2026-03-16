@@ -903,7 +903,10 @@ function Auth({onAuth}){
     if(mode==='signup'){
       const {data,error:e}=await supabase.auth.signUp({
         email,password:pass,
-        options:{data:{name:name||email.split('@')[0],phone,contactTime}},
+        options:{
+          emailRedirectTo:window.location.origin+window.location.pathname,
+          data:{name:name||email.split('@')[0],phone,contactTime},
+        },
       });
       if(e){setError(e.message);setBusy(false);return;}
       if(data.session&&data.user){
@@ -964,7 +967,7 @@ function Auth({onAuth}){
         </button>
         <div style={{textAlign:'center',margin:'18px 0 6px',color:'var(--slate)',fontSize:'13px'}}>or</div>
         <button className="btn-outline" style={{width:'100%',padding:'12px',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px'}} onClick={async()=>{
-          await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.href.split('?')[0].split('#')[0]}});
+          await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin+window.location.pathname}});
         }}>
           <span style={{fontSize:'16px',fontWeight:'700'}}>G</span> Continue with Google
         </button>
