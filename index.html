@@ -601,7 +601,16 @@ function App(){
   const [notification,setNotification]=useState(null);
   const [adminTab,setAdminTab]=useState('dashboard');
   const [selectedSub,setSelectedSub]=useState(null);
-  const [submissions,setSubmissions]=useState(SAMPLE_SUBMISSIONS);
+  const [submissions,setSubmissions]=useState(()=>[
+    ...SAMPLE_SUBMISSIONS,
+    ...LS.getSubs().map((s,i)=>({
+      id:1000+i,bizName:s.bizName,owner:s.owner||s.formData?.ownerName||'—',
+      email:s.email||s.formData?.ownerEmail||'—',phone:s.phone||s.formData?.ownerPhone||'—',
+      industry:s.industry||'—',rev1:s.rev1||s.formData?.rev1||'—',asking:s.asking||s.formData?.asking||'—',
+      date:s.date,deckPaid:s.purchases?.deck||false,excelPaid:s.purchases?.excel||false,
+      status:'New',notes:'',formData:s.formData,
+    })),
+  ]);
   const [userSubs,setUserSubs]=useState(()=>{
     const cur=LS.getCurrent();
     if(!cur)return[];
@@ -692,14 +701,6 @@ function App(){
     setView(user?'form':'auth');
   };
 
-  const allAdminSubs=[...SAMPLE_SUBMISSIONS,...LS.getSubs().map((s,i)=>({
-    id:1000+i,bizName:s.bizName,owner:s.owner||s.formData?.ownerName||'—',
-    email:s.email||s.formData?.ownerEmail||'—',phone:s.phone||s.formData?.ownerPhone||'—',
-    industry:s.industry||'—',rev1:s.rev1||s.formData?.rev1||'—',asking:s.asking||s.formData?.asking||'—',
-    date:s.date,deckPaid:s.purchases?.deck||false,excelPaid:s.purchases?.excel||false,
-    status:'New',notes:'',formData:s.formData,
-  }))];
-
   return(
     <div>
       <Nav view={view} setView={setView} user={user} onLogout={handleLogout} onGetStarted={handleNewSubmission}/>
@@ -708,7 +709,7 @@ function App(){
       {view==='form'&&<IntakeForm user={user} initialData={formData} onDone={handleFormDone}/>}
       {view==='result'&&<ResultView formData={formData} purchases={purchases} onPay={handlePay} user={user} setView={setView}/>}
       {view==='profile'&&<ProfilePage user={user} userSubs={userSubs} onEdit={handleEditSub} onNew={handleNewSubmission} onDownloadDeck={sub=>{generatePPTX(sub.formData,false);notify('✓ Deck re-downloaded!');}} onDownloadExcel={sub=>{generateExcel(sub.formData);notify('✓ Excel re-downloaded!');}}/>}
-      {view==='admin'&&<AdminDash adminTab={adminTab} setAdminTab={setAdminTab} submissions={allAdminSubs} setSubmissions={setSubmissions} selectedSub={selectedSub} setSelectedSub={setSelectedSub}/>}
+      {view==='admin'&&<AdminDash adminTab={adminTab} setAdminTab={setAdminTab} submissions={submissions} setSubmissions={setSubmissions} selectedSub={selectedSub} setSelectedSub={setSelectedSub}/>}
       {payModal&&<PayModal product={payProduct} onConfirm={handlePayConfirm} onClose={()=>setPayModal(false)}/>}
       {notification&&<div className="notification">{notification}</div>}
       <footer className="footer">
@@ -896,11 +897,11 @@ function Auth({onAuth}){
         </button>
         <div style={{textAlign:'center',margin:'18px 0 6px',color:'var(--slate)',fontSize:'13px'}}>or</div>
         <button className="btn-outline" style={{width:'100%',padding:'12px',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px'}} onClick={()=>{
-          const gUser={name:'Google User',email:'google_'+Date.now()+'@gmail.com',phone:''};
+          const gUser={name:'Google User',email:'google@exitready-demo.com',phone:''};
           const users=LS.getUsers();
-          users[gUser.email]={...gUser,password:'google-oauth'};
+          if(!users[gUser.email])users[gUser.email]={...gUser,password:'google-oauth'};
           LS.saveUsers(users);
-          onAuth(gUser);
+          onAuth(users[gUser.email]);
         }}>
           <span style={{fontSize:'16px',fontWeight:'700'}}>G</span> Continue with Google
         </button>
@@ -1882,7 +1883,7 @@ function AdminDash({adminTab,setAdminTab,submissions,setSubmissions,selectedSub,
           {/* Industry + purchase filters + export */}
           <div style={{display:'flex',gap:'8px',marginBottom:'20px',flexWrap:'wrap',alignItems:'center'}}>
             <select value={industryFilter} onChange={e=>setIndustryFilter(e.target.value)} style={{width:'auto',padding:'6px 10px',fontSize:'12px'}}>
-              {industries.map(i=><option key={i}>{i==='All'?'All Industries':i}</option>)}
+              {industries.map(i=><option key={i} value={i}>{i==='All'?'All Industries':i}</option>)}
             </select>
             <select value={purchaseFilter} onChange={e=>setPurchaseFilter(e.target.value)} style={{width:'auto',padding:'6px 10px',fontSize:'12px'}}>
               {['All','Any Paid','Deck Paid','Excel Paid','Free Only'].map(p=><option key={p}>{p}</option>)}
