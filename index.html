@@ -204,7 +204,7 @@ const STEP_LABELS = ['Overview','Financials','Operations','Market','Deal Terms',
 const EMPTY_FORM = {
   bizName:'',dba:'',industry:INDUSTRIES[0],description:'',founded:'',
   employees:'',empPT:'',structure:'LLC',state:'',city:'',opState:'',location:'',website:'',social:'',
-  rev1:'',rev2:'',rev3:'',ebitda1:'',ebitda2:'',ebitda3:'',
+  rev1:'',rev2:'',rev3:'',ebitda1:'',ebitda2:'',ebitda3:'',sdi1:'',sdi2:'',sdi3:'',
   grossMargin:'',mrr:'',revStream1:'',revStream2:'',revStream3:'',
   hasDebts:'No',hasAudited:'No',ndaOk:'Yes',asking:'',valJustification:'',
   ownerDep:3,hasMgmt:'No',mgmtDetails:'',keyEmployees:'',
@@ -1317,6 +1317,12 @@ function IntakeForm({user,initialData,onDone}){
             <Field label="Year 2" value={data.ebitda2} onChange={setCurrency('ebitda2',true)} placeholder="$95,000" inputMode="numeric"/>
           </div>
           <Field label="Year 3" value={data.ebitda3} onChange={setCurrency('ebitda3',true)} placeholder="$72,000" inputMode="numeric"/>
+          <label style={{marginBottom:'12px',display:'flex',alignItems:'center',gap:'4px',marginTop:'4px'}}>Seller Discretionary Earnings (SDE) — Last 3 Years<Tip text="SDE = Net profit + owner's salary + personal expenses run through the business + non-cash charges. This is the most important profitability metric for small business buyers, as it represents the total economic benefit to a single owner-operator." href="https://www.investopedia.com/terms/s/sde.asp"/></label>
+          <div className="form-row">
+            <Field label="Year 1 (Most Recent)" value={data.sdi1} onChange={setCurrency('sdi1',true)} placeholder="$180,000" inputMode="numeric"/>
+            <Field label="Year 2" value={data.sdi2} onChange={setCurrency('sdi2',true)} placeholder="$155,000" inputMode="numeric"/>
+          </div>
+          <Field label="Year 3" value={data.sdi3} onChange={setCurrency('sdi3',true)} placeholder="$130,000" inputMode="numeric"/>
           <div className="form-row">
             <Field label="Gross Margin % (0–100)" tip="Percentage of revenue after subtracting direct costs. Service businesses: 50–80%. Product businesses: 20–50%." tipHref="https://www.investopedia.com/terms/g/grossmargin.asp" value={data.grossMargin} onChange={setPct('grossMargin')} placeholder="68" inputMode="decimal" error={errors.grossMargin}/>
             <Field label="Monthly Recurring Revenue (MRR)" tip="Predictable monthly income from subscriptions or retainers." tipHref="https://www.investopedia.com/terms/m/monthly-recurring-revenue.asp" value={data.mrr} onChange={setCurrency('mrr')} placeholder="$28,000" inputMode="numeric"/>
@@ -1417,6 +1423,7 @@ function IntakeForm({user,initialData,onDone}){
               ['📊','Existing Pitch Deck','If you have one already'],
               ['📷','Business / Product Photos','Optional but helpful'],
               ['📃','Other Supporting Documents','Contracts, LOIs, etc.'],
+              ['🎥','Seller Intro Video','Introduce yourself to investors — MP4, MOV up to 500 MB'],
             ].map(([icon,lbl,hint])=>(
               <div key={lbl} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--border)'}}>
                 <div><span style={{marginRight:'8px'}}>{icon}</span>
