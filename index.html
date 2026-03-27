@@ -9,8 +9,6 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
@@ -135,7 +133,6 @@ input[type=range]:focus{box-shadow:none;border:none}
 .review-row .val{color:var(--cream);text-align:right;max-width:58%;word-break:break-word}
 .notification{position:fixed;bottom:28px;right:28px;background:var(--navy2);border:1px solid var(--gold);border-radius:12px;padding:14px 22px;font-size:14px;color:var(--cream);z-index:300;animation:slideUp 0.3s ease;box-shadow:0 8px 32px rgba(0,0,0,0.4)}
 @keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
-@keyframes spin{to{transform:rotate(360deg)}}
 .auth-box{max-width:440px;margin:60px auto;padding:0 24px}
 .auth-toggle{text-align:center;font-size:13px;color:var(--slate);margin-top:18px;cursor:pointer}
 .auth-toggle span{color:var(--gold)}
@@ -164,20 +161,12 @@ input[type=range]:focus{box-shadow:none;border:none}
 .tip-box a{color:var(--gold);text-decoration:none;display:inline-block;margin-top:8px;font-size:11px}
 .tip-box a:hover{text-decoration:underline}
 .tip-wrap:hover .tip-box{display:block}
-.profile-sub-card{background:var(--navy2);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:12px;transition:border-color 0.2s}
-.profile-sub-card:hover{border-color:rgba(201,168,76,0.3)}
-.slide-thumb-wrap{cursor:pointer;border-radius:10px;overflow:hidden;border:2px solid transparent;transition:all 0.18s}
-.slide-thumb-wrap:hover{border-color:rgba(201,168,76,0.4);transform:translateY(-1px)}
-.slide-thumb-wrap.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
-.admin-login-modal{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px;backdrop-filter:blur(4px)}
-.field-error{font-size:11px;color:var(--red);margin-top:5px;font-weight:500;display:flex;align-items:center;gap:3px}
-input.err,textarea.err,select.err{border-color:var(--red)!important;box-shadow:0 0 0 3px rgba(232,118,90,0.12)!important}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState, useEffect, useCallback} = React;
+const {useState, useCallback} = React;
 
 /* ── Constants ─────────────────────────────────────────── */
 const INDUSTRIES = [
@@ -187,24 +176,12 @@ const INDUSTRIES = [
   'Media / Content','Financial Services','Home Services','Other'
 ];
 
-const US_STATES = [
-  '','Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
-  'Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa',
-  'Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan',
-  'Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada',
-  'New Hampshire','New Jersey','New Mexico','New York','North Carolina',
-  'North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island',
-  'South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont',
-  'Virginia','Washington','West Virginia','Wisconsin','Wyoming',
-  'District of Columbia',
-];
-
 const STEP_LABELS = ['Overview','Financials','Operations','Market','Deal Terms','Contact','Review'];
 
 const EMPTY_FORM = {
   bizName:'',dba:'',industry:INDUSTRIES[0],description:'',founded:'',
-  employees:'',empPT:'',structure:'LLC',state:'',city:'',opState:'',location:'',website:'',social:'',
-  rev1:'',rev2:'',rev3:'',ebitda1:'',ebitda2:'',ebitda3:'',sdi1:'',sdi2:'',sdi3:'',
+  employees:'',empPT:'',structure:'LLC',state:'',location:'',website:'',social:'',
+  rev1:'',rev2:'',rev3:'',ebitda1:'',ebitda2:'',ebitda3:'',
   grossMargin:'',mrr:'',revStream1:'',revStream2:'',revStream3:'',
   hasDebts:'No',hasAudited:'No',ndaOk:'Yes',asking:'',valJustification:'',
   ownerDep:3,hasMgmt:'No',mgmtDetails:'',keyEmployees:'',
@@ -218,22 +195,6 @@ const EMPTY_FORM = {
   ownerName:'',ownerEmail:'',ownerPhone:'',
 };
 
-/* ── Supabase Client ────────────────────────────────────── */
-const supabase = window.supabase.createClient(
-  'https://newthqsqpmmovvvrfjtu.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ld3RocXNxcG1tb3Z2dnJmanR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2Mjg5NTIsImV4cCI6MjA4OTIwNDk1Mn0.jQB0iqDvtBFA_UkQxFHwcozF3JkBqH4ZFI6qIM98apo'
-);
-
-/* ── LocalStorage Helpers (admin + fallback) ────────────── */
-const LS={
-  getUsers:()=>JSON.parse(localStorage.getItem('er_users')||'{}'),
-  saveUsers:u=>localStorage.setItem('er_users',JSON.stringify(u)),
-  getCurrent:()=>localStorage.getItem('er_current')||null,
-  setCurrent:e=>e?localStorage.setItem('er_current',e):localStorage.removeItem('er_current'),
-  getSubs:()=>JSON.parse(localStorage.getItem('er_subs')||'[]'),
-  saveSubs:s=>localStorage.setItem('er_subs',JSON.stringify(s)),
-};
-
 const SAMPLE_SUBMISSIONS = [
   {id:1,bizName:'Coastal Web Design Co.',owner:'Sarah Chen',email:'sarah@coastal.com',phone:'(555) 234-5678',industry:'Marketing Agency',rev1:'$380,000',asking:'$750,000',date:'Mar 12, 2026',deckPaid:true,excelPaid:false,status:'Contacted',notes:'Strong recurring revenue. Follow up this week.'},
   {id:2,bizName:'TidewaterTech LLC',owner:'Marcus Webb',email:'mwebb@tt.com',phone:'(555) 876-4321',industry:'SaaS / Software',rev1:'$210,000',asking:'$525,000',date:'Mar 10, 2026',deckPaid:true,excelPaid:true,status:'In Diligence',notes:'Reviewing financials — Q4 anomaly flagged.'},
@@ -244,20 +205,19 @@ const SAMPLE_SUBMISSIONS = [
 /* ── Hoisted form primitives (OUTSIDE all components) ──────────
    These must live at module scope so React never remounts them
    on parent re-render, which was causing the focus-loss bug.     */
-function Field({label, tip, tipHref, value, onChange, placeholder, type='text', rows, error, inputMode}){
+function Field({label, tip, tipHref, value, onChange, placeholder, type='text', rows}){
   return(
     <div className="field-group">
       {label && <label style={{display:'flex',alignItems:'center',gap:'4px',flexWrap:'wrap'}}>{label}{tip&&<Tip text={tip} href={tipHref}/>}</label>}
       {rows
-        ? <textarea rows={rows} placeholder={placeholder} value={value} onChange={onChange} className={error?'err':''}/>
-        : <input type={type} inputMode={inputMode} placeholder={placeholder} value={value} onChange={onChange} className={error?'err':''}/>
+        ? <textarea rows={rows} placeholder={placeholder} value={value} onChange={onChange}/>
+        : <input type={type} placeholder={placeholder} value={value} onChange={onChange}/>
       }
-      {error&&<div className="field-error">⚠ {error}</div>}
     </div>
   );
 }
 
-function Picker({label, tip, tipHref, value, onChange, opts, error}){
+function Picker({label, tip, tipHref, value, onChange, opts}){
   return(
     <div className="field-group">
       {label && <label style={{display:'flex',alignItems:'center',gap:'4px',flexWrap:'wrap'}}>{label}{tip&&<Tip text={tip} href={tipHref}/>}</label>}
@@ -266,20 +226,17 @@ function Picker({label, tip, tipHref, value, onChange, opts, error}){
           <div key={o} className={`radio-pill${value===o?' selected':''}`} onClick={()=>onChange(o)}>{o}</div>
         ))}
       </div>
-      {error&&<div className="field-error">⚠ {error}</div>}
     </div>
   );
 }
 
-function SelectField({label, tip, tipHref, value, onChange, opts, error, placeholder}){
+function SelectField({label, tip, tipHref, value, onChange, opts}){
   return(
     <div className="field-group">
       {label && <label style={{display:'flex',alignItems:'center',gap:'4px',flexWrap:'wrap'}}>{label}{tip&&<Tip text={tip} href={tipHref}/>}</label>}
-      <select value={value} onChange={e=>onChange(e.target.value)} className={error?'err':''}>
-        {placeholder&&<option value="">{placeholder}</option>}
-        {opts.filter(o=>o!=='').map(o=><option key={o} value={o}>{o}</option>)}
+      <select value={value} onChange={e=>onChange(e.target.value)}>
+        {opts.map(o=><option key={o} value={o}>{o}</option>)}
       </select>
-      {error&&<div className="field-error">⚠ {error}</div>}
     </div>
   );
 }
@@ -315,7 +272,7 @@ function generatePPTX(data, watermark){
   s1.addShape(pptx.ShapeType.rect,{x:0,y:0,w:0.06,h:'100%',fill:{color:GOLD}});
   s1.addText('CONFIDENTIAL INVESTMENT SUMMARY',{x:0.5,y:0.38,w:9,h:0.3,fontSize:9,color:GOLD,bold:true,charSpacing:4});
   s1.addText(data.bizName||'Your Business',{x:0.5,y:0.8,w:9,h:1.4,fontSize:48,color:CREAM,fontFace:'Georgia'});
-  s1.addText(`${data.industry||'Industry'}  ·  Est. ${data.founded||'—'}  ·  ${(data.city?data.city+', ':'')+((data.opState||data.location)||'—')}`,{x:0.5,y:2.2,w:9,h:0.4,fontSize:14,color:SLATE});
+  s1.addText(`${data.industry||'Industry'}  ·  Est. ${data.founded||'—'}  ·  ${data.location||'—'}`,{x:0.5,y:2.2,w:9,h:0.4,fontSize:14,color:SLATE});
   s1.addShape(pptx.ShapeType.rect,{x:0.5,y:2.75,w:8.5,h:0.02,fill:{color:GOLD}});
   [['Asking Price',data.asking||'TBD'],['Revenue (TTM)',data.rev1||'—'],['EBITDA (TTM)',data.ebitda1||'—'],['Employees',(data.employees||'—')+' FT']].forEach(([l,v],i)=>{
     const x=0.5+i*2.3;
@@ -336,7 +293,7 @@ function generatePPTX(data, watermark){
     `Revenue: ${data.rev1||'—'} (TTM)  |  Gross Margin: ${data.grossMargin||'—'}  |  EBITDA: ${data.ebitda1||'—'}`,
     `Team: ${data.employees||'—'} FT employees  |  Owner Dependency: ${data.ownerDep||'—'}/5`,
     `Customers: ${data.activeCust||'—'} active clients  |  Avg. relationship: ${data.avgContract||'—'}`,
-    `Structure: ${data.structure||'—'}  |  Founded: ${data.founded||'—'}  |  Location: ${(data.city?data.city+', ':'')+((data.opState||data.location)||'—')}`,
+    `Structure: ${data.structure||'—'}  |  Founded: ${data.founded||'—'}  |  Location: ${data.location||'—'}`,
     `Deal: ${data.asking||'—'}  |  ${data.dealStruct||'—'}  |  Close in ${data.timeline||'—'}`,
   ].forEach((b,i)=>{
     s2.addText([{text:'▸ ',options:{color:GOLD}},{text:b,options:{color:i===0?CREAM:SLATE}}],
@@ -612,318 +569,29 @@ function generateExcel(data){
   XLSX.writeFile(wb,`${(data.bizName||'ExitReady').replace(/\s+/g,'_')}_FinancialModel.xlsx`);
 }
 
-/* ── PDF Preview Generator (watermarked) ───────────────── */
-function generatePDF(data){
-  if(typeof window.jspdf==='undefined'){alert('PDF library is still loading — please try again in a moment.');return;}
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'l',unit:'mm',format:[254,143]});
-  const W=254,H=143;
-  const C={navy:[13,17,23],navy2:[20,28,38],navy3:[26,37,53],gold:[201,168,76],cream:[232,228,220],slate:[138,155,176]};
-  const loc=(data.city?data.city+', ':'')+(data.opState||data.location||'—');
-  const safe=s=>String(s||'—');
-  const trunc=(s,n)=>{const t=safe(s);return t.length>n?t.slice(0,n-1)+'…':t;};
-
-  const mkSlide=fn=>{
-    doc.setFillColor(...C.navy);doc.rect(0,0,W,H,'F');
-    doc.setFillColor(...C.gold);doc.rect(0,0,2,H,'F');
-    fn();
-    try{doc.saveGraphicsState();doc.setGState(new doc.GState({opacity:0.09}));}catch(e){}
-    doc.setFontSize(42);doc.setTextColor(...C.gold);
-    doc.text('ExitReady — PREVIEW ONLY',W/2,H/2,{align:'center',angle:30});
-    try{doc.restoreGraphicsState();}catch(e){}
-  };
-  const lbl=(t,x,y)=>{doc.setFontSize(6);doc.setTextColor(...C.gold);doc.text(t.toUpperCase(),x,y);};
-  const ttl=(t,x,y,sz=18)=>{doc.setFontSize(sz);doc.setTextColor(...C.cream);doc.text(trunc(t,50),x,y);};
-  const slat=(t,x,y,sz=8)=>{doc.setFontSize(sz);doc.setTextColor(...C.slate);doc.text(t,x,y);};
-  const sep=y=>{doc.setDrawColor(...C.gold);doc.setLineWidth(0.25);doc.line(6,y,248,y);};
-  const box=(x,y,w,h,col)=>{doc.setFillColor(...(col||C.navy3));doc.rect(x,y,w,h,'F');};
-  const brow=(k,v,x,y)=>{
-    doc.setFontSize(7.5);doc.setTextColor(...C.slate);doc.text(k+':',x,y);
-    doc.setTextColor(...C.cream);doc.text(trunc(v,32),x+42,y);
-  };
-
-  // Slide 1 — Cover
-  mkSlide(()=>{
-    lbl('CONFIDENTIAL INVESTMENT SUMMARY',6,10);
-    ttl(data.bizName||'Your Business',6,26,22);
-    slat(`${data.industry||'Industry'}  ·  Est. ${data.founded||'—'}  ·  ${loc}`,6,33);
-    sep(37);
-    [['Asking Price',data.asking||'TBD'],['Revenue (TTM)',data.rev1||'—'],['EBITDA (TTM)',data.ebitda1||'—'],['Employees',safe(data.employees)+' FT']].forEach(([l,v],i)=>{
-      lbl(l,6+i*62,47);doc.setFontSize(13);doc.setTextColor(...C.gold);doc.text(trunc(v,14),6+i*62,56);
-    });
-    slat('Prepared exclusively by ExitReady · exitready.com',6,136,7.5);
-  });
-
-  // Slide 2 — Executive Summary
-  doc.addPage();mkSlide(()=>{
-    lbl('EXECUTIVE SUMMARY',6,10);ttl(data.bizName||'Business Overview',6,22,16);
-    [`Business: ${trunc(data.description,65)||'—'}`,
-     `Revenue: ${safe(data.rev1)} (TTM)  ·  Gross Margin: ${safe(data.grossMargin)}  ·  EBITDA: ${safe(data.ebitda1)}`,
-     `Team: ${safe(data.employees)} FT employees  ·  Owner Dependency: ${safe(data.ownerDep)}/5`,
-     `Customers: ${safe(data.activeCust)} active  ·  Avg. relationship: ${safe(data.avgContract)}`,
-     `Structure: ${safe(data.structure)}  ·  Founded: ${safe(data.founded)}  ·  Location: ${loc}`,
-     `Deal: ${safe(data.asking)}  ·  ${safe(data.dealStruct)}  ·  Close in ${safe(data.timeline)}`,
-    ].forEach((t,i)=>{
-      doc.setFontSize(9);doc.setTextColor(...C.gold);doc.text('▸',6,36+i*14);
-      doc.setFontSize(8.5);doc.setTextColor(i===0?C.cream:C.slate);doc.text(t,11,36+i*14);
-    });
-  });
-
-  // Slide 3 — Financial Highlights
-  doc.addPage();mkSlide(()=>{
-    lbl('FINANCIAL HIGHLIGHTS',6,10);ttl('3-Year Performance Snapshot',6,22,16);
-    const cX=[6,100,143,187];
-    box(6,26,246,9,C.navy3);
-    ['Metric','Year 3','Year 2','Year 1 (TTM)'].forEach((h,ci)=>{doc.setFontSize(7);doc.setTextColor(...C.gold);doc.text(h,cX[ci]+2,33);});
-    [['Revenue',data.rev3,data.rev2,data.rev1],['EBITDA',data.ebitda3,data.ebitda2,data.ebitda1],
-     ['Gross Margin',data.grossMargin,data.grossMargin,data.grossMargin],['MRR','—','—',data.mrr]
-    ].forEach((r,ri)=>{
-      const y=43+ri*14;box(6,y-5,246,13,ri%2===0?C.navy2:C.navy);
-      r.forEach((cell,ci)=>{doc.setFontSize(8);doc.setTextColor(ci===0?C.slate:C.cream);doc.text(safe(cell),cX[ci]+2,y);});
-    });
-    slat(`Asking: ${safe(data.asking)}  ·  Seller Financing: ${safe(data.sellerFinancing)}  ·  Audited: ${safe(data.hasAudited)}`,6,110,7.5);
-  });
-
-  // Slide 4 — Operations
-  doc.addPage();mkSlide(()=>{
-    lbl('OPERATIONS SNAPSHOT',6,10);ttl('Day-to-Day Business Overview',6,22,16);
-    [['Owner Dependency',`${safe(data.ownerDep)}/5`],['Management Team',data.hasMgmt],['Active Customers',data.activeCust],['Avg. Contract',data.avgContract],['SOPs Documented',data.hasSOPs]].forEach(([k,v],i)=>brow(k,v,6,36+i*15));
-    [['Customer Concentration',data.custConcentration],['Key Technology',data.techStack],['Physical Assets',data.physicalAssets||'None'],['IP / Intangibles',data.ip||'None']].forEach(([k,v],i)=>brow(k,v,130,36+i*15));
-  });
-
-  // Slide 5 — Market & Growth
-  doc.addPage();mkSlide(()=>{
-    lbl('MARKET POSITION & GROWTH',6,10);ttl('Competitive Landscape & Opportunity',6,22,16);
-    [['Competitive Advantage',data.moat||'See supporting materials'],
-     ['Total Addressable Market',data.tam||'See supporting materials'],
-     ['Top Growth Opportunities',(data.growthOps||'See supporting materials')],
-     ['Top Competitors',[data.comp1,data.comp2,data.comp3].filter(Boolean).join(' · ')||'See supporting materials'],
-    ].forEach(([title,content],i)=>{
-      box(6,29+i*25,246,23,i%2===0?C.navy3:C.navy2);
-      doc.setFontSize(7);doc.setTextColor(...C.gold);doc.text(title,9,37+i*25);
-      doc.setFontSize(8);doc.setTextColor(...C.slate);doc.text(trunc(content,90),9,44+i*25);
-    });
-  });
-
-  // Slide 6 — Deal Structure
-  doc.addPage();mkSlide(()=>{
-    lbl('DEAL STRUCTURE & TERMS',6,10);ttl('Transaction Overview',6,22,16);
-    [['Asking Price',data.asking],['Preferred Structure',data.dealStruct],
-     ['Seller Financing',data.sellerFinancing==='Yes'?`Yes — ${data.sfTerms||'TBD'}`:data.sellerFinancing],
-     ['Transition Period',data.transition==='Yes'?data.transitionDur||'Negotiable':'Not offered']
-    ].forEach(([k,v],i)=>brow(k,v,6,36+i*18));
-    [['Target Close',data.timeline],['Reason for Sale',data.whySelling],
-     ['Non-Negotiables',data.dealBreakers||'None stated'],['NDA Required',data.ndaOk==='Yes'?'Yes — required':'Not required']
-    ].forEach(([k,v],i)=>brow(k,v,130,36+i*18));
-  });
-
-  // Slide 7 — Why Buy
-  doc.addPage();mkSlide(()=>{
-    lbl('WHY BUY THIS BUSINESS?',6,10);ttl('The Investment Thesis',6,22,16);
-    [`Established revenue of ${safe(data.rev1)} with ${safe(data.grossMargin)} gross margin`,
-     `${safe(data.employees)}-person team in place — owner dependency ${safe(data.ownerDep)}/5`,
-     `${safe(data.activeCust)} active customers with avg. ${safe(data.avgContract)} relationships`,
-     data.moat?`Defensible moat: ${trunc(data.moat,65)}`:'Clear competitive positioning in its niche',
-     data.growthOps?`Untapped upside: ${trunc(data.growthOps,65)}`:'Multiple identified growth levers for new owner',
-    ].forEach((t,i)=>{
-      box(6,30+i*19,246,17,i%2===0?C.navy3:C.navy2);
-      doc.setFontSize(10);doc.setTextColor(...C.gold);doc.text(`0${i+1}`,9,41+i*19);
-      doc.setFontSize(8.5);doc.setTextColor(...C.cream);doc.text(t,20,41+i*19);
-    });
-  });
-
-  // Slide 8 — Next Steps
-  doc.addPage();mkSlide(()=>{
-    lbl('NEXT STEPS',6,10);ttl('How to Proceed',6,22,16);
-    [['01 — Execute NDA','All interested parties must sign a mutual NDA before receiving detailed financials.'],
-     ['02 — Intro Call','Introductory call with the seller to discuss the business and assess fit.'],
-     ['03 — Due Diligence','Full access to financial statements and documentation under NDA.'],
-     ['04 — LOI & Close','Submit a Letter of Intent, negotiate final terms, close with legal counsel.'],
-    ].forEach(([title,desc],i)=>{
-      doc.setFontSize(9);doc.setTextColor(...C.gold);doc.text(title,6,36+i*19);
-      doc.setFontSize(8);doc.setTextColor(...C.slate);doc.text(desc,6,43+i*19);
-    });
-    box(6,112,246,20,C.navy3);
-    doc.setFontSize(9);doc.setTextColor(...C.cream);
-    doc.text(`Contact: ${safe(data.ownerName)}  ·  ${safe(data.ownerEmail)}  ·  ${data.ownerPhone||''}`,10,123);
-  });
-
-  doc.save(`${(data.bizName||'ExitReady').replace(/\s+/g,'_')}_InvestorDeck_PREVIEW.pdf`);
-}
-
 /* ── App ────────────────────────────────────────────────── */
 function App(){
   const [view,setView]=useState('landing');
   const [user,setUser]=useState(null);
-  const [authLoading,setAuthLoading]=useState(true);
   const [formData,setFormData]=useState({});
-  const [editingSubId,setEditingSubId]=useState(null);
-  const [payModal,setPayModal]=useState(false);
-  const [payProduct,setPayProduct]=useState(null);
-  const [purchases,setPurchases]=useState({deck:false,excel:false});
   const [notification,setNotification]=useState(null);
   const [adminTab,setAdminTab]=useState('dashboard');
   const [selectedSub,setSelectedSub]=useState(null);
-  const [submissions,setSubmissions]=useState(()=>[
-    ...SAMPLE_SUBMISSIONS,
-    ...LS.getSubs().map((s,i)=>({
-      id:1000+i,bizName:s.bizName,owner:s.owner||s.formData?.ownerName||'—',
-      email:s.email||s.formData?.ownerEmail||'—',phone:s.phone||s.formData?.ownerPhone||'—',
-      industry:s.industry||'—',rev1:s.rev1||s.formData?.rev1||'—',asking:s.asking||s.formData?.asking||'—',
-      date:s.date,deckPaid:s.purchases?.deck||false,excelPaid:s.purchases?.excel||false,
-      status:'New',notes:'',formData:s.formData,
-    })),
-  ]);
-  const [userSubs,setUserSubs]=useState([]);
+  const [submissions,setSubmissions]=useState(SAMPLE_SUBMISSIONS);
 
   const notify=msg=>{setNotification(msg);setTimeout(()=>setNotification(null),3800)};
 
-  const loadUserSubs=async(userId)=>{
-    try{
-      const {data,error}=await supabase
-        .from('submissions').select('*')
-        .eq('user_id',userId).order('created_at',{ascending:false});
-      if(error){console.error('loadUserSubs:',error);return[];}
-      const fmt=(data||[]).map(s=>({
-        id:s.id,userId:s.user_id,formData:s.form_data||{},
-        purchases:{deck:s.deck_paid||false,excel:s.excel_paid||false},
-        bizName:s.biz_name||s.form_data?.bizName||'Untitled',
-        industry:s.industry||'—',asking:s.asking||'—',rev1:s.rev1||'—',
-        date:s.date||new Date(s.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
-      }));
-      setUserSubs(fmt);
-      return fmt;
-    }catch(e){console.error('loadUserSubs:',e);return[];}
-  };
-
-  const mapSbUser=sb=>({
-    id:sb.id,email:sb.email,
-    name:sb.user_metadata?.name||sb.user_metadata?.full_name||sb.email.split('@')[0],
-    phone:sb.user_metadata?.phone||'',
-  });
-
-  useEffect(()=>{
-    const isOAuthReturn=window.location.search.includes('code=')||window.location.hash.includes('access_token=');
-    supabase.auth.getSession().then(({data:{session}})=>{
-      if(session?.user){
-        const u=mapSbUser(session.user);
-        setUser(u);
-        loadUserSubs(u.id);
-        if(isOAuthReturn){
-          setView('form');
-          window.history.replaceState({},document.title,window.location.pathname);
-        }
-      }
-      setAuthLoading(false);
-    }).catch(e=>{console.error('getSession:',e);setAuthLoading(false);});
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
-      if(event==='SIGNED_OUT'){setUser(null);setUserSubs([]);}
-    });
-    return()=>subscription.unsubscribe();
-  },[]);
-
-  const handleLogin=async(u)=>{
-    setUser(u);
-    if(u.role==='admin'){
-      setView('admin');
-    } else {
-      await loadUserSubs(u.id);
-      setView('form');
-    }
-  };
-
-  const handleLogout=async()=>{
-    if(user&&user.role!=='admin') await supabase.auth.signOut();
-    setUser(null);
-    setUserSubs([]);
-    setFormData({});
-    setEditingSubId(null);
-    setPurchases({deck:false,excel:false});
-    setView('landing');
-  };
-
-  const persistSub=async(formD,purc,subId)=>{
-    if(!user||user.role==='admin')return subId;
-    const row={
-      user_id:user.id,form_data:formD,
-      deck_paid:purc.deck||false,excel_paid:purc.excel||false,
-      biz_name:formD.bizName||'Untitled Business',industry:formD.industry||'—',
-      asking:formD.asking||'—',rev1:formD.rev1||'—',
-      date:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
-    };
-    try{
-      if(subId){
-        const {data,error}=await supabase.from('submissions').update(row).eq('id',subId).select().single();
-        if(error){console.error('update sub:',error);return subId;}
-        loadUserSubs(user.id);
-        return data.id;
-      } else {
-        const {data,error}=await supabase.from('submissions').insert(row).select().single();
-        if(error){console.error('insert sub:',error);return subId;}
-        loadUserSubs(user.id);
-        return data.id;
-      }
-    }catch(e){console.error('persistSub:',e);return subId;}
-  };
-
-  const handleFormDone=async(d)=>{
-    setFormData(d);
-    if(user&&user.role!=='admin'){
-      const id=await persistSub(d,purchases,editingSubId);
-      if(!editingSubId&&id)setEditingSubId(id);
-    }
-    setView('result');
-  };
-
-  const handlePay=product=>{setPayProduct(product);setPayModal(true)};
-  const handlePayConfirm=async()=>{
-    const np={...purchases};
-    if(payProduct==='deck')np.deck=true;
-    if(payProduct==='excel')np.excel=true;
-    if(payProduct==='bundle'){np.deck=true;np.excel=true;}
-    setPurchases(np);
-    setPayModal(false);
-    if(user&&editingSubId){
-      try{
-        await supabase.from('submissions').update({deck_paid:np.deck,excel_paid:np.excel}).eq('id',editingSubId);
-        loadUserSubs(user.id);
-      }catch(e){console.error('pay update:',e);}
-    }
-    if(payProduct==='deck'||payProduct==='bundle'){generatePPTX(formData,false);notify('✓ Clean deck downloaded!');}
-    if(payProduct==='excel'||payProduct==='bundle'){generateExcel(formData);notify('✓ Excel model downloaded!');}
-  };
-
-  const handleEditSub=sub=>{
-    setFormData(sub.formData);
-    setPurchases(sub.purchases||{deck:false,excel:false});
-    setEditingSubId(sub.id);
-    setView('form');
-  };
-
-  const handleNewSubmission=()=>{
-    setFormData({});
-    setPurchases({deck:false,excel:false});
-    setEditingSubId(null);
-    setView(user?'form':'auth');
-  };
-
-  if(authLoading)return(
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:'16px'}}>
-      <div style={{width:'40px',height:'40px',border:'3px solid var(--border2)',borderTopColor:'var(--gold)',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
-      <div style={{color:'var(--slate)',fontSize:'14px'}}>Loading ExitReady...</div>
-    </div>
-  );
+  const handleDownloadDeck=(watermark)=>{generatePPTX(formData,watermark);notify(watermark?'✓ Preview deck downloaded!':'✓ Investor deck downloaded!');};
+  const handleDownloadExcel=()=>{generateExcel(formData);notify('✓ Excel model downloaded!');};
 
   return(
     <div>
-      <Nav view={view} setView={setView} user={user} onLogout={handleLogout} onGetStarted={handleNewSubmission}/>
-      {view==='landing'&&<Landing onGetStarted={handleNewSubmission}/>}
-      {view==='auth'&&<Auth onAuth={handleLogin}/>}
-      {view==='form'&&<IntakeForm user={user} initialData={formData} onDone={handleFormDone}/>}
-      {view==='result'&&<ResultView formData={formData} purchases={purchases} onPay={handlePay} user={user} setView={setView}/>}
-      {view==='profile'&&<ProfilePage user={user} userSubs={userSubs} onEdit={handleEditSub} onNew={handleNewSubmission} onDownloadDeck={sub=>{generatePPTX(sub.formData,false);notify('✓ Deck re-downloaded!');}} onDownloadExcel={sub=>{generateExcel(sub.formData);notify('✓ Excel re-downloaded!');}}/>}
+      <Nav view={view} setView={setView} user={user} setUser={setUser}/>
+      {view==='landing'&&<Landing setView={setView}/>}
+      {view==='auth'&&<Auth onAuth={u=>{setUser(u);setView('form')}}/>}
+      {view==='form'&&<IntakeForm user={user} onDone={d=>{setFormData(d);setView('result')}}/>}
+      {view==='result'&&<ResultView formData={formData} onDownloadDeck={handleDownloadDeck} onDownloadExcel={handleDownloadExcel}/>}
       {view==='admin'&&<AdminDash adminTab={adminTab} setAdminTab={setAdminTab} submissions={submissions} setSubmissions={setSubmissions} selectedSub={selectedSub} setSelectedSub={setSelectedSub}/>}
-      {payModal&&<PayModal product={payProduct} onConfirm={handlePayConfirm} onClose={()=>setPayModal(false)}/>}
       {notification&&<div className="notification">{notification}</div>}
       <footer className="footer">
         © 2026 ExitReady · All rights reserved ·{' '}
@@ -934,34 +602,29 @@ function App(){
   );
 }
 
-function Nav({view,setView,user,onLogout,onGetStarted}){
+function Nav({view,setView,user,setUser}){
   return(
     <nav className="nav">
       <div className="logo" onClick={()=>setView('landing')}>Exit<span>Ready</span></div>
       <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
-        {user&&user.role!=='admin'&&(
-          <button className="btn-ghost" style={{fontSize:'13px',color:view==='profile'?'var(--gold)':'var(--slate)'}} onClick={()=>setView('profile')}>My Profile</button>
-        )}
-        {user&&user.role==='admin'&&(
-          <button className="btn-ghost" style={{fontSize:'13px',color:'var(--gold)'}} onClick={()=>setView('admin')}>Admin Dashboard</button>
-        )}
-        {!user&&<button className="btn-outline" style={{fontSize:'13px',padding:'8px 18px'}} onClick={()=>setView('auth')}>Log In</button>}
-        {!user&&<button className="btn-gold" style={{fontSize:'13px',padding:'9px 22px'}} onClick={onGetStarted}>List My Business →</button>}
-        {user&&<button className="btn-outline" style={{fontSize:'13px',padding:'8px 16px'}} onClick={onLogout}>Sign Out</button>}
+        {user&&<span style={{fontSize:'13px',color:'var(--slate)'}}>{user.name}</span>}
+        <button className="btn-ghost" style={{fontSize:'13px'}} onClick={()=>setView('admin')}>Admin</button>
+        {view==='landing'&&<button className="btn-gold" style={{fontSize:'13px',padding:'9px 22px'}} onClick={()=>setView('auth')}>List My Business →</button>}
+        {user&&<button className="btn-outline" style={{fontSize:'13px',padding:'8px 16px'}} onClick={()=>{setUser(null);setView('landing')}}>Sign Out</button>}
       </div>
     </nav>
   );
 }
 
-function Landing({onGetStarted}){
+function Landing({setView}){
   return(
     <div>
       <div className="hero">
         <div className="badge badge-gold" style={{marginBottom:'22px'}}>Buyer-Ready in Minutes</div>
         <h1>Turn Your Business Into<br/><em>An Investor-Ready Deal</em></h1>
         <p>Submit your business details once. Walk away with a professional investor deck and financial model — the same materials used in seven-figure acquisitions, built for Main Street businesses.</p>
-        <button className="btn-gold" style={{fontSize:'16px',padding:'16px 40px'}} onClick={onGetStarted}>Get My Investor Deck →</button>
-        <div style={{marginTop:'18px',fontSize:'13px',color:'var(--slate)'}}>Free watermarked preview · Clean deck $49.99 · No broker. No commission.</div>
+        <button className="btn-gold" style={{fontSize:'16px',padding:'16px 40px'}} onClick={()=>setView('auth')}>Get My Investor Deck →</button>
+        <div style={{marginTop:'18px',fontSize:'13px',color:'var(--slate)'}}>Free 8-page preview deck · Full investor deck $49.99 · No broker. No commission.</div>
       </div>
       <div className="stat-bar">
         {[['500+','Businesses Processed'],['$12M+','In Deal Value'],['2 min','Avg. Form Time'],['92%','Seller Satisfaction']].map(([n,l])=>(
@@ -971,8 +634,8 @@ function Landing({onGetStarted}){
       <div className="features">
         {[
           ['📋','Guided Intake Form','Our 7-step form captures every data point buyers need to evaluate your business — financials, operations, growth potential, and deal terms.'],
-          ['📊','Investor-Grade Deck','An 8-slide PowerPoint structured like a real M&A information memorandum — generated instantly and automatically from your answers.'],
-          ['💳','One-Time Purchase','Pay $49.99 once to download your clean, watermark-free deck. No subscription. No broker fee. No commission on the sale.'],
+          ['📊','Free 8-Page Preview','Receive a professional 8-slide PowerPoint instantly — a real preview deck structured like an M&A information memorandum, free to download.'],
+          ['🏆','Full Investor Deck','Upgrade to the $49.99 Investor Deck for a more detailed, comprehensive presentation with every section fully explained for potential buyers.'],
         ].map(([icon,title,desc])=>(
           <div className="feature-card" key={title}>
             <div className="feature-icon">{icon}</div>
@@ -990,8 +653,8 @@ function Landing({onGetStarted}){
         <div className="steps-row">
           {[
             ['01','Submit Your Info','Complete our guided 7-step intake covering financials, operations, growth potential, and deal preferences.'],
-            ['02','Review Your Deck','Receive a watermarked preview instantly — see exactly how buyers will evaluate your business.'],
-            ['03','Pay & Download','Pay once to remove the watermark. Download your clean, professional deck and share it directly with buyers.'],
+            ['02','Get Your Free Preview','Receive a free 8-page preview deck instantly — see exactly how buyers will evaluate your business, ready to download.'],
+            ['03','Upgrade for More Detail','Get the $49.99 Investor Deck for a comprehensive, fully explained presentation that covers every aspect buyers care about.'],
           ].map(([num,title,desc])=>(
             <div key={num} style={{textAlign:'center'}}>
               <div className="step-num">{num}</div>
@@ -1006,12 +669,12 @@ function Landing({onGetStarted}){
           <div className="section-label">Pricing</div>
           <div className="section-title">Simple. Transparent. Flat-Fee.</div>
         </div>
-        <div className="pricing-grid">
+        <div className="pricing-grid" style={{gridTemplateColumns:'1fr 1fr',maxWidth:'700px',margin:'0 auto'}}>
           <div className="pricing-card">
             <div style={{fontSize:'12px',fontWeight:'600',color:'var(--slate)',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.06em'}}>Free Preview</div>
             <div className="price-num">$0</div>
-            <div style={{fontSize:'13px',color:'var(--slate)',margin:'10px 0 20px',lineHeight:'1.6'}}>Submit and receive your watermarked deck preview instantly.</div>
-            {['Complete 7-step intake','Instant watermarked deck','Basic financial summary'].map(f=>(
+            <div style={{fontSize:'13px',color:'var(--slate)',margin:'10px 0 20px',lineHeight:'1.6'}}>Submit once and instantly download your 8-page preview deck and Excel model — no payment required.</div>
+            {['Complete 7-step intake','8-page preview deck (.pptx)','Excel financial model (.xlsx)','Instant free download','Cover page, financials & operations'].map(f=>(
               <div className="check-row" key={f}><span className="check-icon">✓</span>{f}</div>
             ))}
           </div>
@@ -1019,16 +682,8 @@ function Landing({onGetStarted}){
             <div style={{position:'absolute',top:'-13px',left:'50%',transform:'translateX(-50%)',background:'linear-gradient(135deg,#C9A84C,#E8C97A)',color:'#0D1117',fontSize:'11px',fontWeight:'700',padding:'4px 16px',borderRadius:'20px',whiteSpace:'nowrap'}}>MOST POPULAR</div>
             <div style={{fontSize:'12px',fontWeight:'600',color:'var(--gold)',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.06em'}}>Investor Deck</div>
             <div className="price-num">$49<span>.99</span></div>
-            <div style={{fontSize:'13px',color:'var(--slate)',margin:'10px 0 20px',lineHeight:'1.6'}}>Clean, watermark-free 8-slide PowerPoint ready to share.</div>
-            {['Everything in Free','No watermark — fully clean','Instant .pptx download','Fully editable slides','8-slide investor structure'].map(f=>(
-              <div className="check-row" key={f}><span className="check-icon">✓</span>{f}</div>
-            ))}
-          </div>
-          <div className="pricing-card">
-            <div style={{fontSize:'12px',fontWeight:'600',color:'var(--slate)',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.06em'}}>Full Bundle</div>
-            <div className="price-num">$69<span>.99</span></div>
-            <div style={{fontSize:'13px',color:'var(--slate)',margin:'10px 0 20px',lineHeight:'1.6'}}>Deck + full Excel financial model with DCF & deal assumptions.</div>
-            {['Everything in Investor Deck','DCF valuation model','3-year P&L + projections','Cash flow statement','Deal assumptions & earnout'].map(f=>(
+            <div style={{fontSize:'13px',color:'var(--slate)',margin:'10px 0 20px',lineHeight:'1.6'}}>A comprehensive, fully detailed investor deck with every section explained and buyer-ready.</div>
+            {['Everything in Free Preview','More detail on every slide','Deal terms & seller rationale','Why buy section with thesis','Buyer Q&A explanations included','Professional M&A formatting'].map(f=>(
               <div className="check-row" key={f}><span className="check-icon">✓</span>{f}</div>
             ))}
           </div>
@@ -1043,44 +698,23 @@ function Auth({onAuth}){
   const [name,setName]=useState('');
   const [email,setEmail]=useState('');
   const [phone,setPhone]=useState('');
-  const [contactTime,setContactTime]=useState('');
+  const [contactTime,setContactTime]=useState('Anytime');
   const [pass,setPass]=useState('');
   const [error,setError]=useState('');
-  const [info,setInfo]=useState('');
-  const [busy,setBusy]=useState(false);
 
-  const handleSubmit=async()=>{
-    setError('');setInfo('');
-    if(!email||!pass){setError('Email and password are required.');return;}
-    // Admin login (not a Supabase user)
-    if(email.toLowerCase()==='admin'&&pass==='Admin123'){
-      onAuth({name:'Administrator',email:'Admin',role:'admin'});
-      return;
-    }
-    setBusy(true);
-    if(mode==='signup'){
-      const {data,error:e}=await supabase.auth.signUp({
-        email,password:pass,
-        options:{
-          emailRedirectTo:window.location.origin+window.location.pathname,
-          data:{name:name||email.split('@')[0],phone,contactTime},
-        },
-      });
-      if(e){setError(e.message);setBusy(false);return;}
-      // Sign in immediately after account creation (email verification temporarily disabled)
-      const {data:sd,error:se}=await supabase.auth.signInWithPassword({email,password:pass});
-      if(se||!sd.user){setError('Account created — please sign in.');setMode('login');setBusy(false);return;}
-      onAuth({id:sd.user.id,email:sd.user.email,name:name||email.split('@')[0],phone});
-    } else {
-      const {data,error:e}=await supabase.auth.signInWithPassword({email,password:pass});
-      if(e){setError(e.message);setBusy(false);return;}
-      if(data.user){
-        const sb=data.user;
-        onAuth({id:sb.id,email:sb.email,name:sb.user_metadata?.name||sb.email.split('@')[0],phone:sb.user_metadata?.phone||''});
-      }
-    }
-    setBusy(false);
+  const isValidEmail=v=>v&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+  const handleSubmit=()=>{
+    setError('');
+    if(!email.trim()){setError('Please enter your email address.');return;}
+    if(!isValidEmail(email)){setError('Please enter a valid email address.');return;}
+    if(!pass){setError('Please enter a password.');return;}
+    if(mode==='signup'&&pass.length<6){setError('Password must be at least 6 characters.');return;}
+    if(mode==='signup'&&!name.trim()){setError('Please enter your full name.');return;}
+    onAuth({name:name.trim()||email.split('@')[0],email:email.trim(),phone:phone.trim()});
   };
+
+  const handleKeyDown=e=>{if(e.key==='Enter')handleSubmit();};
 
   return(
     <div className="auth-box">
@@ -1089,44 +723,47 @@ function Auth({onAuth}){
         <h2 className="serif" style={{fontSize:'34px',color:'var(--cream)',letterSpacing:'-0.02em'}}>{mode==='signup'?'Create Your Account':'Sign In to ExitReady'}</h2>
       </div>
       <div className="card">
+        {error&&(
+          <div style={{background:'rgba(232,118,90,0.08)',border:'1px solid rgba(232,118,90,0.3)',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'13px',color:'var(--red)'}}>{error}</div>
+        )}
         {mode==='signup'&&(
           <div className="field-group"><label>Full Name *</label>
-            <input placeholder="Your full name" value={name} onChange={e=>setName(e.target.value)}/>
+            <input placeholder="Your full name" value={name} onChange={e=>setName(e.target.value)} onKeyDown={handleKeyDown}/>
           </div>
         )}
         <div className="field-group"><label>Email Address *</label>
-          <input type="email" placeholder="you@company.com" value={email} onChange={e=>setEmail(e.target.value)}/>
+          <input type="email" placeholder="you@company.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={handleKeyDown}/>
         </div>
         {mode==='signup'&&(<>
-          <div className="field-group"><label>Phone Number</label>
-            <input type="tel" placeholder="(555) 000-0000" value={phone} onChange={e=>setPhone(e.target.value)}/>
+          <div className="field-group"><label>Phone Number <span style={{color:'var(--slate)',fontWeight:'400',textTransform:'none',letterSpacing:'0'}}>(optional)</span></label>
+            <input type="tel" placeholder="(555) 000-0000" value={phone} onChange={e=>setPhone(e.target.value)} onKeyDown={handleKeyDown}/>
           </div>
           <div className="field-group"><label>Best Time to Contact</label>
             <select value={contactTime} onChange={e=>setContactTime(e.target.value)}>
-              <option value="">Select preferred time...</option>
-              <option>Morning (8am–12pm)</option>
-              <option>Afternoon (12pm–5pm)</option>
-              <option>Evening (5pm–8pm)</option>
-              <option>Anytime</option>
+              <option value="Morning (8am–12pm)">Morning (8am–12pm)</option>
+              <option value="Afternoon (12pm–5pm)">Afternoon (12pm–5pm)</option>
+              <option value="Evening (5pm–8pm)">Evening (5pm–8pm)</option>
+              <option value="Anytime">Anytime</option>
             </select>
           </div>
         </>)}
-        <div className="field-group"><label>Password</label>
-          <input type="password" placeholder="••••••••" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSubmit()}/>
+        <div className="field-group"><label>Password {mode==='signup'&&<span style={{color:'var(--slate)',fontWeight:'400',textTransform:'none',letterSpacing:'0'}}>(min. 6 characters)</span>}</label>
+          <input type="password" placeholder="••••••••" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={handleKeyDown}/>
         </div>
-        {info&&<div style={{background:'rgba(82,183,136,0.08)',border:'1px solid rgba(82,183,136,0.25)',borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'var(--green)'}}>{info}</div>}
-        {error&&<div style={{background:'rgba(232,118,90,0.08)',border:'1px solid rgba(232,118,90,0.25)',borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'var(--red)'}}>{error}</div>}
-        <button className="btn-gold" style={{width:'100%',padding:'14px',marginTop:'8px',fontSize:'15px'}} disabled={busy} onClick={handleSubmit}>
-          {busy?'Please wait…':(mode==='signup'?'Create Account & Continue →':'Sign In →')}
+        <button className="btn-gold" style={{width:'100%',padding:'14px',marginTop:'8px',fontSize:'15px'}} onClick={handleSubmit}>
+          {mode==='signup'?'Create Account & Continue →':'Sign In →'}
         </button>
-        <div style={{textAlign:'center',margin:'18px 0 6px',color:'var(--slate)',fontSize:'13px'}}>or</div>
-        <button className="btn-outline" style={{width:'100%',padding:'12px',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px'}} onClick={async()=>{
-          await supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin+window.location.pathname}});
-        }}>
-          <span style={{fontSize:'16px',fontWeight:'700'}}>G</span> Continue with Google
+        <div style={{display:'flex',alignItems:'center',gap:'12px',margin:'18px 0'}}>
+          <div style={{flex:1,height:'1px',background:'var(--border)'}}/>
+          <span style={{fontSize:'12px',color:'var(--slate)'}}>or</span>
+          <div style={{flex:1,height:'1px',background:'var(--border)'}}/>
+        </div>
+        <button className="btn-outline" style={{width:'100%',padding:'12px',display:'flex',alignItems:'center',justifyContent:'center',gap:'10px'}} onClick={()=>{setError('');onAuth({name:'Google User',email:'googleuser@gmail.com',phone:''})}}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Continue with Google
         </button>
       </div>
-      <div className="auth-toggle" onClick={()=>{setMode(mode==='signup'?'login':'signup');setError('');setInfo('');}}>
+      <div className="auth-toggle" onClick={()=>{setMode(mode==='signup'?'login':'signup');setError('');setName('');setEmail('');setPhone('');setPass('');}}>
         {mode==='signup'?<>Already have an account? <span>Sign in</span></>:<>New here? <span>Create account</span></>}
       </div>
     </div>
@@ -1135,128 +772,17 @@ function Auth({onAuth}){
 
 /* ── Intake Form — Field components are hoisted above App so
    React never unmounts them on state change (fixes focus bug) ── */
-function IntakeForm({user,initialData,onDone}){
+function IntakeForm({user,onDone}){
   const [step,setStep]=useState(0);
-  const [data,setData]=useState(()=>
-    Object.keys(initialData||{}).length>0
-      ? initialData
-      : {...EMPTY_FORM,ownerName:user?.name||'',ownerEmail:user?.email||'',ownerPhone:user?.phone||''}
-  );
-  const [errors,setErrors]=useState({});
-
-  // Reset form when initialData changes (e.g. Edit & Regenerate vs New Submission)
-  useEffect(()=>{
-    setStep(0);setErrors({});
-    setData(
-      Object.keys(initialData||{}).length>0
-        ? initialData
-        : {...EMPTY_FORM,ownerName:user?.name||'',ownerEmail:user?.email||'',ownerPhone:user?.phone||''}
-    );
-  },[initialData]);
+  const [data,setData]=useState({
+    ...EMPTY_FORM,
+    ownerName:user?.name||'',
+    ownerEmail:user?.email||'',
+    ownerPhone:user?.phone||'',
+  });
 
   // Stable setter — never changes reference
   const set=useCallback((k,v)=>setData(d=>({...d,[k]:v})),[]);
-  const clrErr=useCallback(k=>setErrors(e=>{const n={...e};delete n[k];return n;}),[]);
-
-  // ── Typed input handlers ────────────────────────────────
-  // Dollar (positive only): strip non-digits, auto-format $1,234
-  const setCurrency=useCallback((key,allowNeg=false)=>e=>{
-    const raw=e.target.value;
-    const neg=allowNeg&&(raw.trimStart().startsWith('-')||raw.trimStart().startsWith('('));
-    const digits=raw.replace(/[^\d]/g,'');
-    if(!digits){set(key,neg?'-':'');clrErr(key);return;}
-    const fmt='$'+parseInt(digits,10).toLocaleString('en-US');
-    set(key,neg?'-'+fmt:fmt);clrErr(key);
-  },[set,clrErr]);
-
-  // Asking price: currency if starts with digit/$, else free text
-  const setAsking=useCallback(e=>{
-    const raw=e.target.value;
-    if(!raw){set('asking','');clrErr('asking');return;}
-    const first=raw.trimStart()[0];
-    if(first==='$'||/\d/.test(first)){
-      const digits=raw.replace(/[^\d]/g,'');
-      if(!digits){set('asking','$');clrErr('asking');return;}
-      set('asking','$'+parseInt(digits,10).toLocaleString('en-US'));
-    } else {
-      set('asking',raw);
-    }
-    clrErr('asking');
-  },[set,clrErr]);
-
-  // Integer only (employees, customer counts)
-  const setInt=useCallback(key=>e=>{
-    const v=e.target.value.replace(/[^\d]/g,'');
-    set(key,v);clrErr(key);
-  },[set,clrErr]);
-
-  // Year: digits only, max 4 chars
-  const setYear=useCallback(e=>{
-    const v=e.target.value.replace(/[^\d]/g,'').slice(0,4);
-    set('founded',v);clrErr('founded');
-  },[set,clrErr]);
-
-  // Percentage: digits and decimal only (0–100)
-  const setPct=useCallback(key=>e=>{
-    const v=e.target.value.replace(/[^\d.]/g,'');
-    // Block values over 100
-    if(v&&parseFloat(v)>100)return;
-    set(key,v);clrErr(key);
-  },[set,clrErr]);
-
-  // Phone: auto-format (555) 000-0000
-  const setPhone=useCallback(e=>{
-    const d=e.target.value.replace(/\D/g,'').slice(0,10);
-    let fmt='';
-    if(d.length>=7)fmt=`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
-    else if(d.length>=4)fmt=`(${d.slice(0,3)}) ${d.slice(3)}`;
-    else if(d.length>0)fmt=`(${d}`;
-    set('ownerPhone',fmt);clrErr('ownerPhone');
-  },[set,clrErr]);
-
-  // ── Per-step validation ──────────────────────────────────
-  const validateStep=useCallback(s=>{
-    const errs={};const d=data;
-    const yr=new Date().getFullYear();
-    if(s===0){
-      if(!d.bizName?.trim())errs.bizName='Business name is required.';
-      if(!d.description?.trim()||d.description.trim().length<20)errs.description='Please describe your business (at least 20 characters).';
-      if(!d.founded?.trim())errs.founded='Year founded is required.';
-      else if(!/^\d{4}$/.test(d.founded.trim())||+d.founded<1800||+d.founded>yr)errs.founded=`Enter a valid 4-digit year (e.g. 2015).`;
-      if(d.employees&&!/^\d+$/.test(d.employees))errs.employees='Must be a whole number (e.g. 12).';
-      if(d.empPT&&!/^\d+$/.test(d.empPT))errs.empPT='Must be a whole number (e.g. 4).';
-      if(d.website?.trim()&&!/^https?:\/\/.+\..+/.test(d.website.trim()))errs.website='Enter a valid URL starting with https://';
-    }
-    if(s===1){
-      if(!d.rev1?.trim())errs.rev1='Year 1 revenue is required.';
-      if(!d.asking?.trim())errs.asking='Asking price is required.';
-      if(d.grossMargin?.trim()){
-        const pct=parseFloat(d.grossMargin.replace(/[^0-9.]/g,''));
-        if(isNaN(pct)||pct<0||pct>100)errs.grossMargin='Enter a percentage between 0 and 100.';
-      }
-    }
-    if(s===2){
-      if((d.hasMgmt==='Yes'||d.hasMgmt==='Partial')&&!d.mgmtDetails?.trim())errs.mgmtDetails='Please describe your management team.';
-      if(d.activeCust&&!/^\d+$/.test(d.activeCust))errs.activeCust='Must be a whole number (e.g. 450).';
-    }
-    if(s===4){
-      if(!d.whySelling?.trim()||d.whySelling.trim().length<10)errs.whySelling='Please explain why you are selling (at least 10 characters).';
-      if((d.sellerFinancing==='Yes'||d.sellerFinancing==='Maybe')&&!d.sfTerms?.trim())errs.sfTerms='Please describe your seller financing preferences.';
-    }
-    if(s===5){
-      if(!d.ownerName?.trim())errs.ownerName='Your full name is required.';
-      if(!d.ownerEmail?.trim())errs.ownerEmail='Email address is required.';
-      else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.ownerEmail.trim()))errs.ownerEmail='Enter a valid email address.';
-      if(d.ownerPhone?.trim()&&!/^\(\d{3}\) \d{3}-\d{4}$/.test(d.ownerPhone.trim()))errs.ownerPhone='Use format: (555) 000-0000';
-    }
-    setErrors(errs);
-    return Object.keys(errs).length===0;
-  },[data]);
-
-  const handleContinue=useCallback(()=>{
-    if(!validateStep(step))return;
-    setStep(s=>s+1);window.scrollTo({top:0,behavior:'smooth'});
-  },[validateStep,step]);
 
   const pct=Math.round((step/(STEP_LABELS.length-1))*100);
 
@@ -1278,25 +804,24 @@ function IntakeForm({user,initialData,onDone}){
       {step===0&&(
         <div>
           <div className="step-header"><h2>Business Overview</h2><p>Give buyers a clear picture of what your business is and who's behind it.</p></div>
-          <Field label="Business Legal Name *" tip="The official registered name of your business as it appears on legal documents, contracts, and government filings." value={data.bizName} onChange={e=>{set('bizName',e.target.value);clrErr('bizName');}} placeholder="Acme Holdings LLC" error={errors.bizName}/>
-          <Field label="DBA / Trade Name (if different)" tip="'Doing Business As' — the name your company operates under publicly if it differs from the legal entity name." tipHref="https://www.investopedia.com/terms/d/doing-business-as.asp" value={data.dba} onChange={e=>set('dba',e.target.value)} placeholder="Acme Co."/>
-          <SelectField label="Industry / Sector *" tip="Select the category that best describes your primary business activity." value={data.industry} onChange={v=>set('industry',v)} opts={INDUSTRIES}/>
-          <Field label="Business Description *" tip="Write a plain-English summary of what your business does, how it generates revenue, and what sets it apart. Be specific and compelling." value={data.description} onChange={e=>{set('description',e.target.value);clrErr('description');}} placeholder="Describe what your business does, how it makes money, and what makes it unique..." rows={4} error={errors.description}/>
+          <Field label="Business Legal Name *" tip="The official registered name of your business as it appears on legal documents, contracts, and government filings. This may differ from the name you use day-to-day." value={data.bizName} onChange={e=>set('bizName',e.target.value)} placeholder="Acme Holdings LLC"/>
+          <Field label="DBA / Trade Name (if different)" tip="'Doing Business As' — the name your company operates under publicly if it differs from the legal entity name. For example, 'John Smith LLC' might do business as 'Smith Plumbing'." tipHref="https://www.investopedia.com/terms/d/doing-business-as.asp" value={data.dba} onChange={e=>set('dba',e.target.value)} placeholder="Acme Co."/>
+          <SelectField label="Industry / Sector *" tip="Select the category that best describes your primary business activity. Buyers and investors use this to compare your business to industry benchmarks and similar transactions." value={data.industry} onChange={v=>set('industry',v)} opts={INDUSTRIES}/>
+          <Field label="Business Description *" tip="Write a plain-English summary of what your business does, how it generates revenue, and what sets it apart from competitors. Think of this as your elevator pitch to a potential buyer — be specific, honest, and compelling." value={data.description} onChange={e=>set('description',e.target.value)} placeholder="Describe what your business does, how it makes money, and what makes it unique..." rows={4}/>
           <div className="form-row">
-            <Field label="Year Founded *" tip="The calendar year your business was officially formed or began operations." value={data.founded} onChange={setYear} placeholder="2018" inputMode="numeric" error={errors.founded}/>
-            <SelectField label="Business Structure" tip="The legal entity type of your business." tipHref="https://www.investopedia.com/terms/b/business-structure.asp" value={data.structure} onChange={v=>set('structure',v)} opts={['LLC','S-Corp','C-Corp','Sole Proprietor','Partnership','Other']}/>
+            <Field label="Year Founded *" tip="The calendar year your business was officially formed or began operations. Longer operating history generally signals stability and reduced risk to buyers." value={data.founded} onChange={e=>set('founded',e.target.value)} placeholder="2018"/>
+            <SelectField label="Business Structure" tip="The legal entity type of your business, which affects taxes, liability, and how the acquisition is structured. LLC and S-Corp are the most common for small businesses. Each type has different tax and legal implications for buyers." tipHref="https://www.investopedia.com/terms/b/business-structure.asp" value={data.structure} onChange={v=>set('structure',v)} opts={['LLC','S-Corp','C-Corp','Sole Proprietor','Partnership','Other']}/>
           </div>
           <div className="form-row">
-            <Field label="Full-Time Employees" tip="Number of employees working 35+ hours/week." value={data.employees} onChange={setInt('employees')} placeholder="12" inputMode="numeric" error={errors.employees}/>
-            <Field label="Part-Time Employees" tip="Employees working fewer than 35 hours/week regularly." value={data.empPT} onChange={setInt('empPT')} placeholder="4" inputMode="numeric" error={errors.empPT}/>
+            <Field label="Full-Time Employees" tip="The number of employees who work 35+ hours per week. Headcount is a key operational metric buyers use to assess infrastructure, labor costs, and scalability." value={data.employees} onChange={e=>set('employees',e.target.value)} placeholder="12"/>
+            <Field label="Part-Time Employees" tip="Employees working fewer than 35 hours per week on a regular basis. Include consistent part-timers but generally exclude independent contractors or one-off freelancers unless they are integral to daily operations." value={data.empPT} onChange={e=>set('empPT',e.target.value)} placeholder="4"/>
           </div>
           <div className="form-row">
-            <SelectField label="State of Incorporation" tip="The U.S. state where your business was legally formed." value={data.state} onChange={v=>set('state',v)} opts={US_STATES} placeholder="Select state..."/>
-            <SelectField label="Operating State" tip="The state where your business primarily operates day-to-day." value={data.opState} onChange={v=>set('opState',v)} opts={US_STATES} placeholder="Select state..."/>
+            <Field label="State of Incorporation" tip="The U.S. state where your business was legally formed — not necessarily where you operate. Delaware and Wyoming are common choices for favorable tax and liability laws, but most small businesses are incorporated in their home state." value={data.state} onChange={e=>set('state',e.target.value)} placeholder="Delaware"/>
+            <Field label="Primary Operating Location" tip="The city and state where your business primarily operates day-to-day. Location affects your customer base, labor market, tax obligations, and the pool of potential buyers who may be interested." value={data.location} onChange={e=>set('location',e.target.value)} placeholder="Austin, TX"/>
           </div>
-          <Field label="City" tip="The city where your business primarily operates." value={data.city} onChange={e=>set('city',e.target.value)} placeholder="Austin"/>
-          <Field label="Website URL" tip="Your business's primary website. Buyers will visit it independently." value={data.website} onChange={e=>{set('website',e.target.value);clrErr('website');}} placeholder="https://yourcompany.com" error={errors.website}/>
-          <Field label="Social Media Handles (optional)" tip="Instagram, LinkedIn, TikTok handles, etc." value={data.social} onChange={e=>set('social',e.target.value)} placeholder="@yourcompany"/>
+          <Field label="Website URL" tip="Your business's primary website URL. Buyers will visit it to independently evaluate your brand, product quality, customer reviews, and online presence before engaging further." value={data.website} onChange={e=>set('website',e.target.value)} placeholder="https://yourcompany.com"/>
+          <Field label="Social Media Handles (optional)" tip="Links or handles for your business's social media accounts (Instagram, LinkedIn, Facebook, TikTok, etc.). A meaningful social following or engaged community can be a valuable asset that contributes to overall business value." value={data.social} onChange={e=>set('social',e.target.value)} placeholder="@yourcompany"/>
         </div>
       )}
 
@@ -1304,39 +829,33 @@ function IntakeForm({user,initialData,onDone}){
       {step===1&&(
         <div>
           <div className="step-header"><h2>Financial Snapshot</h2><p>Investors make or break decisions based on numbers. Be as accurate as possible.</p></div>
-          <div className="info-box-gold">💡 Year 1 = most recent full year. Numbers only — type digits and we'll format them automatically.</div>
-          <label style={{marginBottom:'12px',display:'flex',alignItems:'center',gap:'4px'}}>Annual Revenue — Last 3 Years<Tip text="Total revenue before expenses. Year 1 = most recent fiscal year." href="https://www.investopedia.com/terms/r/revenue.asp"/></label>
+          <div className="info-box-gold">💡 Year 1 = most recent full year. Use whole dollar amounts (e.g. $420,000).</div>
+          <label style={{marginBottom:'12px',display:'flex',alignItems:'center',gap:'4px'}}>Annual Revenue — Last 3 Years<Tip text="Total revenue is all income generated before subtracting any expenses. Use your P&L statement or tax returns as the source. Year 1 = most recent complete fiscal year. Enter whole dollar amounts (e.g. $420,000)." href="https://www.investopedia.com/terms/r/revenue.asp"/></label>
           <div className="form-row">
-            <Field label="Year 1 (Most Recent) *" value={data.rev1} onChange={setCurrency('rev1')} placeholder="$420,000" inputMode="numeric" error={errors.rev1}/>
-            <Field label="Year 2" value={data.rev2} onChange={setCurrency('rev2')} placeholder="$310,000" inputMode="numeric"/>
+            <Field label="Year 1 (Most Recent) *" value={data.rev1} onChange={e=>set('rev1',e.target.value)} placeholder="$420,000"/>
+            <Field label="Year 2" value={data.rev2} onChange={e=>set('rev2',e.target.value)} placeholder="$310,000"/>
           </div>
-          <Field label="Year 3" value={data.rev3} onChange={setCurrency('rev3')} placeholder="$245,000" inputMode="numeric"/>
-          <label style={{marginBottom:'12px',display:'flex',alignItems:'center',gap:'4px',marginTop:'4px'}}>Annual EBITDA / Net Profit — Last 3 Years<Tip text="EBITDA approximates true cash the business generates. Enter negative values for loss years (e.g. -$40,000)." href="https://www.investopedia.com/terms/e/ebitda.asp"/></label>
+          <Field label="Year 3" value={data.rev3} onChange={e=>set('rev3',e.target.value)} placeholder="$245,000"/>
+          <label style={{marginBottom:'12px',display:'flex',alignItems:'center',gap:'4px',marginTop:'4px'}}>Annual EBITDA / Net Profit — Last 3 Years<Tip text="EBITDA (Earnings Before Interest, Taxes, Depreciation & Amortization) is the most commonly used profitability metric in business acquisitions — it approximates the true cash a business generates. If unsure, net profit from your tax return is acceptable." href="https://www.investopedia.com/terms/e/ebitda.asp"/></label>
           <div className="form-row">
-            <Field label="Year 1 (Most Recent)" value={data.ebitda1} onChange={setCurrency('ebitda1',true)} placeholder="$140,000" inputMode="numeric"/>
-            <Field label="Year 2" value={data.ebitda2} onChange={setCurrency('ebitda2',true)} placeholder="$95,000" inputMode="numeric"/>
+            <Field label="Year 1 (Most Recent)" value={data.ebitda1} onChange={e=>set('ebitda1',e.target.value)} placeholder="$140,000"/>
+            <Field label="Year 2" value={data.ebitda2} onChange={e=>set('ebitda2',e.target.value)} placeholder="$95,000"/>
           </div>
-          <Field label="Year 3" value={data.ebitda3} onChange={setCurrency('ebitda3',true)} placeholder="$72,000" inputMode="numeric"/>
-          <label style={{marginBottom:'12px',display:'flex',alignItems:'center',gap:'4px',marginTop:'4px'}}>Seller Discretionary Earnings (SDE) — Last 3 Years<Tip text="SDE = Net profit + owner's salary + personal expenses run through the business + non-cash charges. This is the most important profitability metric for small business buyers, as it represents the total economic benefit to a single owner-operator." href="https://www.investopedia.com/terms/s/sde.asp"/></label>
+          <Field label="Year 3" value={data.ebitda3} onChange={e=>set('ebitda3',e.target.value)} placeholder="$72,000"/>
           <div className="form-row">
-            <Field label="Year 1 (Most Recent)" value={data.sdi1} onChange={setCurrency('sdi1',true)} placeholder="$180,000" inputMode="numeric"/>
-            <Field label="Year 2" value={data.sdi2} onChange={setCurrency('sdi2',true)} placeholder="$155,000" inputMode="numeric"/>
+            <Field label="Gross Margin %" tip="Gross margin is the percentage of revenue remaining after subtracting direct costs (COGS). Formula: (Revenue − COGS) ÷ Revenue × 100. A higher gross margin signals a more scalable and profitable business. Service businesses often run 50–80%; product businesses 20–50%." tipHref="https://www.investopedia.com/terms/g/grossmargin.asp" value={data.grossMargin} onChange={e=>set('grossMargin',e.target.value)} placeholder="68%"/>
+            <Field label="Monthly Recurring Revenue (MRR)" tip="MRR is the predictable monthly revenue from subscriptions, retainers, or recurring contracts. High MRR is extremely attractive to buyers because it signals revenue predictability and dramatically reduces acquisition risk." tipHref="https://www.investopedia.com/terms/m/monthly-recurring-revenue.asp" value={data.mrr} onChange={e=>set('mrr',e.target.value)} placeholder="$28,000"/>
           </div>
-          <Field label="Year 3" value={data.sdi3} onChange={setCurrency('sdi3',true)} placeholder="$130,000" inputMode="numeric"/>
-          <div className="form-row">
-            <Field label="Gross Margin % (0–100)" tip="Percentage of revenue after subtracting direct costs. Service businesses: 50–80%. Product businesses: 20–50%." tipHref="https://www.investopedia.com/terms/g/grossmargin.asp" value={data.grossMargin} onChange={setPct('grossMargin')} placeholder="68" inputMode="decimal" error={errors.grossMargin}/>
-            <Field label="Monthly Recurring Revenue (MRR)" tip="Predictable monthly income from subscriptions or retainers." tipHref="https://www.investopedia.com/terms/m/monthly-recurring-revenue.asp" value={data.mrr} onChange={setCurrency('mrr')} placeholder="$28,000" inputMode="numeric"/>
-          </div>
-          <Field label="Revenue Stream 1 (Primary Source)" tip="Your top source of income — describe it and its approximate % of total revenue." value={data.revStream1} onChange={e=>set('revStream1',e.target.value)} placeholder="e.g. SaaS subscriptions — 70% of revenue"/>
+          <Field label="Revenue Stream 1 (Primary Source)" tip="A revenue stream is a distinct source of income within your business. Identifying your top streams helps buyers understand revenue concentration, predictability, and diversification. Most businesses have 1–3 primary streams." value={data.revStream1} onChange={e=>set('revStream1',e.target.value)} placeholder="e.g. SaaS subscriptions — 70% of revenue"/>
           <div className="form-row">
             <Field label="Revenue Stream 2" value={data.revStream2} onChange={e=>set('revStream2',e.target.value)} placeholder="e.g. Professional services"/>
             <Field label="Revenue Stream 3" value={data.revStream3} onChange={e=>set('revStream3',e.target.value)} placeholder="e.g. Licensing fees"/>
           </div>
-          <Picker label="Outstanding Debts or Liabilities?" tip="Loans, credit lines, or obligations that must be disclosed or settled at closing." tipHref="https://www.investopedia.com/terms/l/liability.asp" value={data.hasDebts} onChange={v=>set('hasDebts',v)} opts={['Yes','No']}/>
-          <Picker label="Do You Have Audited Financials?" tip="Audited or reviewed financials increase buyer confidence and may improve your multiple." tipHref="https://www.investopedia.com/terms/a/auditedfinancialstatements.asp" value={data.hasAudited} onChange={v=>set('hasAudited',v)} opts={['Yes','No','Reviewed Only']}/>
-          <Picker label="Share Financials Under NDA?" tip="Requiring an NDA before sharing detailed financials is standard M&A practice." tipHref="https://www.investopedia.com/terms/n/nda.asp" value={data.ndaOk} onChange={v=>set('ndaOk',v)} opts={['Yes','No']}/>
-          <Field label="Asking Price *" tip="Enter a dollar amount or 'Open to offers'. Numbers are auto-formatted." tipHref="https://www.investopedia.com/terms/v/valuation.asp" value={data.asking} onChange={setAsking} placeholder="$650,000 or Open to offers" error={errors.asking}/>
-          <Field label="Valuation Justification" tip="Explain how you arrived at your asking price: EBITDA multiple, revenue multiple, asset value, etc." tipHref="https://www.investopedia.com/terms/v/valuationmultiples.asp" value={data.valJustification} onChange={e=>set('valJustification',e.target.value)} placeholder="e.g. 3x EBITDA based on comparable sales in this industry..." rows={3}/>
+          <Picker label="Outstanding Debts or Liabilities?" tip="Any loans, lines of credit, accounts payable, deferred revenue, or other financial obligations your business currently carries. These typically must be disclosed and either assumed or settled at closing, so buyers need full visibility upfront." tipHref="https://www.investopedia.com/terms/l/liability.asp" value={data.hasDebts} onChange={v=>set('hasDebts',v)} opts={['Yes','No']}/>
+          <Picker label="Do You Have Audited Financials?" tip="Audited financials are reviewed and certified by an independent CPA to verify their accuracy and completeness. Having audited or 'reviewed' financials significantly increases buyer confidence and can positively impact your valuation multiple." tipHref="https://www.investopedia.com/terms/a/auditedfinancialstatements.asp" value={data.hasAudited} onChange={v=>set('hasAudited',v)} opts={['Yes','No','Reviewed Only']}/>
+          <Picker label="Share Financials Under NDA?" tip="A Non-Disclosure Agreement (NDA) is a legal contract requiring buyers to keep your sensitive financial and business information confidential. Requiring an NDA before sharing financials is standard practice in M&A and protects your business if a deal falls through." tipHref="https://www.investopedia.com/terms/n/nda.asp" value={data.ndaOk} onChange={v=>set('ndaOk',v)} opts={['Yes','No']}/>
+          <Field label="Asking Price *" tip="The purchase price you are seeking for 100% of the business. Common valuations are expressed as a multiple of EBITDA (e.g., '3x EBITDA') or revenue. If you're unsure of a number, enter 'Open to offers' — this is a perfectly acceptable and common approach." tipHref="https://www.investopedia.com/terms/v/valuation.asp" value={data.asking} onChange={e=>set('asking',e.target.value)} placeholder="$650,000 or 'Open to offers'"/>
+          <Field label="Valuation Justification" tip="Explain how you arrived at your asking price. Common methods: EBITDA multiples (most common for SMBs), revenue multiples, asset value, or comparable business sales you are aware of. Buyers are far more likely to engage when they understand your reasoning." tipHref="https://www.investopedia.com/terms/v/valuationmultiples.asp" value={data.valJustification} onChange={e=>set('valJustification',e.target.value)} placeholder="How did you arrive at this number? (e.g. 3x EBITDA, comparable sales...)" rows={3}/>
         </div>
       )}
 
@@ -1355,12 +874,12 @@ function IntakeForm({user,initialData,onDone}){
           </div>
           <Picker label="Management Team In Place?" tip="A management team that can operate independently of the owner is one of the most valuable assets a business can have. Buyers fear key people will leave post-acquisition, so demonstrating team depth significantly de-risks the deal and supports a higher valuation." value={data.hasMgmt} onChange={v=>set('hasMgmt',v)} opts={['Yes','No','Partial']}/>
           {(data.hasMgmt==='Yes'||data.hasMgmt==='Partial')&&(
-            <Field label="Management Team Details (names & roles) *" value={data.mgmtDetails} onChange={e=>{set('mgmtDetails',e.target.value);clrErr('mgmtDetails');}} placeholder="e.g. Jane Smith — Operations Manager (8 yrs), Tom Lee — Sales Director..." rows={2} error={errors.mgmtDetails}/>
+            <Field label="Management Team Details (names & roles)" value={data.mgmtDetails} onChange={e=>set('mgmtDetails',e.target.value)} placeholder="e.g. Jane Smith — Operations Manager (8 yrs), Tom Lee — Sales Director..." rows={2}/>
           )}
           <Field label="Key Employees / Critical Dependencies" tip="Identify which specific employees are critical to operations, customer relationships, or revenue. Also note whether they are likely to remain after a sale — buyers often require key-employee retention agreements (with bonuses or equity) as a condition of closing." value={data.keyEmployees} onChange={e=>set('keyEmployees',e.target.value)} placeholder="Who are the essential people — and would they stay with a new owner?"/>
           <Picker label="Any Single Customer Represents >20% of Revenue?" tip="Customer concentration risk means a large portion of your revenue depends on very few customers. If a single customer accounts for more than 20% of revenue, buyers will flag it as a risk — because losing that customer post-acquisition could severely impact cash flow. Be transparent; buyers will find this during diligence." tipHref="https://www.investopedia.com/terms/c/concentration-risk.asp" value={data.custConcentration} onChange={v=>set('custConcentration',v)} opts={['Yes','No']}/>
           <div className="form-row">
-            <Field label="Number of Active Customers / Clients" tip="The count of distinct paying customers or clients who have transacted with your business in the last 12 months. More customers generally equals more diversified revenue, lower concentration risk, and a more attractive acquisition target." value={data.activeCust} onChange={setInt('activeCust')} placeholder="450" inputMode="numeric" error={errors.activeCust}/>
+            <Field label="Number of Active Customers / Clients" tip="The count of distinct paying customers or clients who have transacted with your business in the last 12 months. More customers generally equals more diversified revenue, lower concentration risk, and a more attractive acquisition target." value={data.activeCust} onChange={e=>set('activeCust',e.target.value)} placeholder="450"/>
             <Field label="Average Contract / Relationship Length" tip="The typical duration of your customer relationships or contracts (in months or years). Longer average relationships signal high customer retention, switching costs, and revenue predictability — all of which increase business value and buyer confidence." value={data.avgContract} onChange={e=>set('avgContract',e.target.value)} placeholder="24 months"/>
           </div>
           <Picker label="Documented SOPs / Operating Procedures?" tip="Standard Operating Procedures (SOPs) are written step-by-step instructions for how recurring tasks are performed. Documented SOPs signal that the business is systematized and can be run by someone other than the current owner — a critical factor in buyer confidence and post-acquisition success." value={data.hasSOPs} onChange={v=>set('hasSOPs',v)} opts={['Yes','No','Partial']}/>
@@ -1393,11 +912,11 @@ function IntakeForm({user,initialData,onDone}){
       {step===4&&(
         <div>
           <div className="step-header"><h2>Deal Terms</h2><p>Tell buyers what you're looking for — and how flexible you can be.</p></div>
-          <Field label="Why Are You Selling? *" tip="This is one of the first questions every serious buyer asks — and one of the most important. Credible answers include: retirement, pursuing a new venture, health reasons, capital reallocation, or a partnership split. Be honest and specific — buyers will probe this deeply during due diligence. Vague or inconsistent answers are a significant red flag." value={data.whySelling} onChange={e=>{set('whySelling',e.target.value);clrErr('whySelling');}} placeholder="Retirement, new venture, health, capital redeployment, partnership split..." rows={3} error={errors.whySelling}/>
+          <Field label="Why Are You Selling? *" tip="This is one of the first questions every serious buyer asks — and one of the most important. Credible answers include: retirement, pursuing a new venture, health reasons, capital reallocation, or a partnership split. Be honest and specific — buyers will probe this deeply during due diligence. Vague or inconsistent answers are a significant red flag." value={data.whySelling} onChange={e=>set('whySelling',e.target.value)} placeholder="Retirement, new venture, health, capital redeployment, partnership split..." rows={3}/>
           <SelectField label="Ideal Timeline to Close" tip="How quickly do you want or need to complete the sale? A faster timeline ('ASAP') signals urgency and may attract buyers who are ready to move quickly. A longer window gives you time to run a competitive process and potentially negotiate a higher price. Most small business sales take 6–12 months from listing to close." tipHref="https://www.investopedia.com/terms/d/due-diligence.asp" value={data.timeline} onChange={v=>set('timeline',v)} opts={['ASAP (< 3 months)','3–6 months','6–12 months','12+ months','Flexible / No Rush']}/>
           <Picker label="Open to Seller Financing?" tip="Seller financing means you (the seller) agree to receive a portion of the purchase price over time rather than all cash at closing. It signals your confidence in the business's continued performance, makes the deal accessible to more buyers, and often results in a higher total sale price. It is extremely common in small business acquisitions." tipHref="https://www.investopedia.com/terms/s/seller-financing.asp" value={data.sellerFinancing} onChange={v=>set('sellerFinancing',v)} opts={['Yes','No','Maybe']}/>
           {(data.sellerFinancing==='Yes'||data.sellerFinancing==='Maybe')&&(
-            <Field label="Seller Financing Terms / Preferences *" tip="Describe your preferred seller financing structure. Typical terms: the financed percentage of the purchase price (e.g., 10–30%), the interest rate (typically 5–8% per year), and the repayment period (typically 3–7 years). These are fully negotiable and can be structured in many ways. Consult an M&A advisor or attorney for guidance." value={data.sfTerms} onChange={e=>{set('sfTerms',e.target.value);clrErr('sfTerms');}} placeholder="e.g. Up to 20% seller note at 6% interest over 5 years" error={errors.sfTerms}/>
+            <Field label="Seller Financing Terms / Preferences" tip="Describe your preferred seller financing structure. Typical terms: the financed percentage of the purchase price (e.g., 10–30%), the interest rate (typically 5–8% per year), and the repayment period (typically 3–7 years). These are fully negotiable and can be structured in many ways. Consult an M&A advisor or attorney for guidance." value={data.sfTerms} onChange={e=>set('sfTerms',e.target.value)} placeholder="e.g. Up to 20% seller note at 6% interest over 5 years"/>
           )}
           <Picker label="Willing to Stay On for a Transition Period?" tip="A transition period is a defined window after closing during which you remain involved to train the new owner, introduce them to key customers and vendors, and ensure a smooth operational handoff. Most buyers expect and strongly value this. Offering a transition period makes your business significantly more attractive and easier to close." value={data.transition} onChange={v=>set('transition',v)} opts={['Yes','No']}/>
           {data.transition==='Yes'&&(
@@ -1413,9 +932,9 @@ function IntakeForm({user,initialData,onDone}){
         <div>
           <div className="step-header"><h2>Your Contact Information</h2><p>Kept strictly private — only shared with verified buyers under NDA.</p></div>
           <div className="info-box-green">🔒 Your contact details are never displayed publicly. ExitReady only facilitates introductions after NDA execution.</div>
-          <Field label="Full Name *" value={data.ownerName} onChange={e=>{set('ownerName',e.target.value);clrErr('ownerName');}} placeholder="Your full name" error={errors.ownerName}/>
-          <Field label="Email Address *" value={data.ownerEmail} onChange={e=>{set('ownerEmail',e.target.value);clrErr('ownerEmail');}} placeholder="you@company.com" error={errors.ownerEmail}/>
-          <Field label="Phone Number" value={data.ownerPhone} onChange={setPhone} placeholder="(555) 000-0000" error={errors.ownerPhone}/>
+          <Field label="Full Name *" value={data.ownerName} onChange={e=>set('ownerName',e.target.value)} placeholder="Your full name"/>
+          <Field label="Email Address *" value={data.ownerEmail} onChange={e=>set('ownerEmail',e.target.value)} placeholder="you@company.com"/>
+          <Field label="Phone Number" value={data.ownerPhone} onChange={e=>set('ownerPhone',e.target.value)} placeholder="(555) 000-0000"/>
           <div style={{marginTop:'28px',padding:'20px',background:'var(--navy)',borderRadius:'12px',border:'1px solid var(--border)'}}>
             <div style={{fontSize:'12px',fontWeight:'600',letterSpacing:'0.05em',color:'var(--slate)',marginBottom:'14px',textTransform:'uppercase'}}>Optional Document Uploads</div>
             {[
@@ -1423,7 +942,6 @@ function IntakeForm({user,initialData,onDone}){
               ['📊','Existing Pitch Deck','If you have one already'],
               ['📷','Business / Product Photos','Optional but helpful'],
               ['📃','Other Supporting Documents','Contracts, LOIs, etc.'],
-              ['🎥','Seller Intro Video','Introduce yourself to investors — MP4, MOV up to 500 MB'],
             ].map(([icon,lbl,hint])=>(
               <div key={lbl} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--border)'}}>
                 <div><span style={{marginRight:'8px'}}>{icon}</span>
@@ -1443,7 +961,7 @@ function IntakeForm({user,initialData,onDone}){
           <div className="step-header"><h2>Review & Submit</h2><p>Confirm your information before we generate your investor deck.</p></div>
           <div className="card" style={{marginBottom:'16px'}}>
             {[
-              {title:'Business Overview',rows:[['Business Name',data.bizName||'—'],['Industry',data.industry],['Founded',data.founded||'—'],['Location',(data.city&&data.opState?`${data.city}, ${data.opState}`:data.city||data.opState||'—')],['Employees',`${data.employees||'—'} FT${data.empPT?` · ${data.empPT} PT`:''}`]]},
+              {title:'Business Overview',rows:[['Business Name',data.bizName||'—'],['Industry',data.industry],['Founded',data.founded||'—'],['Location',data.location||'—'],['Employees',`${data.employees||'—'} FT${data.empPT?` · ${data.empPT} PT`:''}`]]},
               {title:'Financials',rows:[['Revenue (Yr 1)',data.rev1||'—'],['EBITDA (Yr 1)',data.ebitda1||'—'],['Gross Margin',data.grossMargin||'—'],['Asking Price',data.asking||'—']]},
               {title:'Deal Terms',rows:[['Why Selling',data.whySelling||'—'],['Timeline',data.timeline],['Structure',data.dealStruct],['Seller Financing',data.sellerFinancing]]},
               {title:'Contact',rows:[['Name',data.ownerName||'—'],['Email',data.ownerEmail||'—'],['Phone',data.ownerPhone||'—']]},
@@ -1463,9 +981,9 @@ function IntakeForm({user,initialData,onDone}){
 
       {/* Nav */}
       <div className="nav-btns">
-        {step>0?<button className="btn-outline" onClick={()=>{setStep(s=>s-1);window.scrollTo({top:0,behavior:'smooth'});}}>← Back</button>:<div/>}
+        {step>0?<button className="btn-outline" onClick={()=>setStep(s=>s-1)}>← Back</button>:<div/>}
         {step<STEP_LABELS.length-1
-          ?<button className="btn-gold" onClick={handleContinue}>Continue →</button>
+          ?<button className="btn-gold" onClick={()=>setStep(s=>s+1)}>Continue →</button>
           :<button className="btn-gold" style={{padding:'13px 36px',fontSize:'15px'}} onClick={()=>onDone(data)}>Generate My Deck 🚀</button>
         }
       </div>
@@ -1473,9 +991,8 @@ function IntakeForm({user,initialData,onDone}){
   );
 }
 
-function ResultView({formData,purchases,onPay,user,setView}){
+function ResultView({formData,onDownloadDeck,onDownloadExcel}){
   const [tab,setTab]=useState('deck');
-  const [activeSlide,setActiveSlide]=useState(0);
 
   /* ── 5 rendered slide mini-previews ── */
   const SlideThumb=({title,children,locked})=>(
@@ -1573,102 +1090,15 @@ function ResultView({formData,purchases,onPay,user,setView}){
     </div>
   );
 
-  const largeSlideContents=[
-    /* 0 – Cover */
-    <div style={{position:'relative',zIndex:1}}>
-      <div style={{fontSize:'10px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'10px',textTransform:'uppercase'}}>Confidential Investment Summary</div>
-      <div className="serif" style={{fontSize:'34px',color:'var(--cream)',marginBottom:'6px',lineHeight:'1.1'}}>{formData.bizName||'Your Business'}</div>
-      <div style={{fontSize:'14px',color:'var(--slate)',marginBottom:'20px'}}>{formData.industry||'Industry'} · Est. {formData.founded||'—'} · {formData.location||'—'}</div>
-      <div style={{height:'1px',background:'rgba(201,168,76,0.4)',marginBottom:'20px'}}/>
-      <div style={{display:'flex',gap:'32px',flexWrap:'wrap'}}>
-        {[['Asking',formData.asking||'TBD'],['Revenue',formData.rev1||'—'],['EBITDA',formData.ebitda1||'—'],['Employees',(formData.employees||'—')+' FT']].map(([l,v])=>(
-          <div key={l}><div style={{fontSize:'10px',color:'var(--slate)',marginBottom:'3px',letterSpacing:'0.04em',textTransform:'uppercase'}}>{l}</div><div style={{fontSize:'18px',fontWeight:'600',color:'var(--gold)'}}>{v}</div></div>
-        ))}
-      </div>
-    </div>,
-    /* 1 – Executive Summary */
-    <div style={{position:'relative',zIndex:1,width:'100%'}}>
-      <div style={{fontSize:'9px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'8px',textTransform:'uppercase'}}>Executive Summary</div>
-      <div className="serif" style={{fontSize:'24px',color:'var(--cream)',marginBottom:'14px'}}>{formData.bizName||'Business Overview'}</div>
-      {[
-        `Business: ${(formData.description||'—').substring(0,100)}${formData.description&&formData.description.length>100?'...':''}`,
-        `Revenue: ${formData.rev1||'—'} (TTM)  |  Gross Margin: ${formData.grossMargin||'—'}  |  EBITDA: ${formData.ebitda1||'—'}`,
-        `Team: ${formData.employees||'—'} FT employees  |  Owner Dependency: ${formData.ownerDep||'—'}/5`,
-        `Customers: ${formData.activeCust||'—'} active clients  |  Avg. relationship: ${formData.avgContract||'—'}`,
-        `Structure: ${formData.structure||'—'}  |  Founded: ${formData.founded||'—'}  |  ${formData.location||'—'}`,
-        `Deal: ${formData.asking||'—'}  |  ${formData.dealStruct||'—'}  |  Close in ${formData.timeline||'—'}`,
-      ].map((b,i)=>(
-        <div key={i} style={{display:'flex',gap:'8px',padding:'5px 0',borderBottom:'1px solid rgba(30,46,66,0.5)'}}>
-          <span style={{color:'var(--gold)',flexShrink:0}}>▸</span>
-          <span style={{fontSize:'12px',color:i===0?'var(--cream)':'var(--slate)',lineHeight:'1.5'}}>{b}</span>
-        </div>
-      ))}
-    </div>,
-    /* 2 – Financial Highlights */
-    <div style={{position:'relative',zIndex:1,width:'100%'}}>
-      <div style={{fontSize:'9px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'8px',textTransform:'uppercase'}}>Financial Highlights</div>
-      <div className="serif" style={{fontSize:'24px',color:'var(--cream)',marginBottom:'14px'}}>3-Year Performance Snapshot</div>
-      <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12px'}}>
-        <tbody>
-        {[['Metric','Year 3','Year 2','Year 1 (TTM)'],['Revenue',formData.rev3||'—',formData.rev2||'—',formData.rev1||'—'],['EBITDA',formData.ebitda3||'—',formData.ebitda2||'—',formData.ebitda1||'—'],['Gross Margin',formData.grossMargin||'—',formData.grossMargin||'—',formData.grossMargin||'—'],['MRR','—','—',formData.mrr||'—']].map((row,ri)=>(
-          <tr key={ri}>{row.map((cell,ci)=>(
-            <td key={ci} style={{padding:'8px 12px',border:'1px solid var(--border)',background:ri===0?'var(--navy3)':ri%2===0?'rgba(26,37,53,0.6)':'var(--navy)',color:ri===0?'var(--gold)':ci===0?'var(--slate)':'var(--cream)',fontWeight:ri===0||ci===3?'600':'400'}}>{cell}</td>
-          ))}</tr>
-        ))}
-        </tbody>
-      </table>
-    </div>,
-    /* 3 – Operations */
-    <div style={{position:'relative',zIndex:1,width:'100%'}}>
-      <div style={{fontSize:'9px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'8px',textTransform:'uppercase'}}>Operations Snapshot</div>
-      <div className="serif" style={{fontSize:'24px',color:'var(--cream)',marginBottom:'14px'}}>Day-to-Day Business Overview</div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-        {[['Owner Dependency',`${formData.ownerDep||'—'} / 5`],['Management Team',formData.hasMgmt||'—'],['Active Customers',formData.activeCust||'—'],['Avg. Contract',formData.avgContract||'—'],['SOPs Documented',formData.hasSOPs||'—'],['Customer Concentration',formData.custConcentration||'—'],['Key Tech',(formData.techStack||'—').substring(0,45)],['IP / Assets',(formData.ip||'None').substring(0,45)]].map(([k,v])=>(
-          <div key={k} style={{background:'var(--navy3)',borderRadius:'6px',padding:'8px 12px',border:'1px solid var(--border)'}}>
-            <div style={{fontSize:'10px',color:'var(--slate)',marginBottom:'2px',textTransform:'uppercase',letterSpacing:'0.04em'}}>{k}</div>
-            <div style={{fontSize:'13px',fontWeight:'600',color:'var(--cream)'}}>{v}</div>
-          </div>
-        ))}
-      </div>
-    </div>,
-    /* 4 – Market & Growth */
-    <div style={{position:'relative',zIndex:1,width:'100%'}}>
-      <div style={{fontSize:'9px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'8px',textTransform:'uppercase'}}>Market Position & Growth</div>
-      <div className="serif" style={{fontSize:'24px',color:'var(--cream)',marginBottom:'14px'}}>Competitive Landscape & Opportunity</div>
-      {[['Competitive Advantage',formData.moat||'See supporting materials'],['Total Addressable Market',formData.tam||'See supporting materials'],['Top Growth Opportunities',(formData.growthOps||'See supporting materials').substring(0,130)],['Top Competitors',[formData.comp1,formData.comp2,formData.comp3].filter(Boolean).join(' · ')||'See supporting materials']].map(([title,content],i)=>(
-        <div key={i} style={{background:i%2===0?'var(--navy3)':'var(--navy2)',borderRadius:'6px',padding:'8px 12px',marginBottom:'7px',border:'1px solid var(--border)'}}>
-          <div style={{fontSize:'9px',color:'var(--gold)',fontWeight:'700',letterSpacing:'0.05em',textTransform:'uppercase',marginBottom:'3px'}}>{title}</div>
-          <div style={{fontSize:'12px',color:'var(--slate)',lineHeight:'1.5'}}>{content}</div>
-        </div>
-      ))}
-    </div>,
-  ];
-
-  const isLocked=idx=>idx>=5&&!purchases.deck;
-
-  const DeckSlidePreview=({idx})=>(
-    <div className="deck-slide">
-      {!isLocked(idx)&&<div className="watermark"><div className="watermark-text">ExitReady — PREVIEW ONLY<br/>ExitReady — PREVIEW ONLY</div></div>}
-      {isLocked(idx)?(
-        <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:'14px',position:'relative',zIndex:1}}>
-          <div style={{fontSize:'44px'}}>🔒</div>
-          <div className="serif" style={{fontSize:'28px',color:'var(--cream)'}}>Slide Locked</div>
-          <p style={{color:'var(--slate)',fontSize:'14px',textAlign:'center',maxWidth:'300px',lineHeight:'1.6'}}>Purchase the clean deck to unlock all 8 slides</p>
-          <button className="btn-gold" style={{padding:'12px 30px'}} onClick={()=>setTab('unlock')}>Unlock Now →</button>
-        </div>
-      ):(largeSlideContents[idx]||largeSlideContents[0])}
-    </div>
-  );
-
   const slides=[
     {title:'01 — Cover Page',content:slide1Content,locked:false},
     {title:'02 — Executive Summary',content:slide2Content,locked:false},
     {title:'03 — Financial Highlights',content:slide3Content,locked:false},
     {title:'04 — Operations',content:slide4Content,locked:false},
     {title:'05 — Market & Growth',content:slide5Content,locked:false},
-    {title:'06 — Deal Structure & Terms',content:null,locked:true},
-    {title:'07 — Why Buy This Business',content:null,locked:true},
-    {title:'08 — Next Steps',content:null,locked:true},
+    {title:'06 — Deal Structure & Terms',content:slide4Content,locked:false},
+    {title:'07 — Why Buy This Business',content:slide5Content,locked:false},
+    {title:'08 — Next Steps',content:slide2Content,locked:false},
   ];
 
   /* ── Excel tab screenshots (rendered in HTML/CSS) ── */
@@ -1789,55 +1219,61 @@ function ResultView({formData,purchases,onPay,user,setView}){
       <div style={{textAlign:'center',padding:'40px 20px 28px'}}>
         <div style={{width:'68px',height:'68px',borderRadius:'50%',background:'rgba(82,183,136,0.1)',border:'2px solid var(--green)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'28px',margin:'0 auto 20px'}}>✓</div>
         <h2 className="serif" style={{fontSize:'38px',color:'var(--cream)',marginBottom:'12px'}}>Your Deck Is Ready</h2>
-        <p style={{color:'var(--slate)',maxWidth:'500px',margin:'0 auto',fontSize:'15px',lineHeight:'1.7'}}>Your watermarked preview is below. Pay once to unlock your clean deck — or grab the bundle and get the full Excel financial model too.</p>
-        {user&&<div style={{marginTop:'14px',fontSize:'13px',color:'var(--green)',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
-          <span>✓</span><span>Saved to your account — re-download anytime from <button className="btn-ghost" style={{color:'var(--gold)',fontSize:'13px',padding:'0',textDecoration:'underline'}} onClick={()=>setView('profile')}>My Profile</button></span>
-        </div>}
+        <p style={{color:'var(--slate)',maxWidth:'520px',margin:'0 auto',fontSize:'15px',lineHeight:'1.7'}}>Your free 8-page preview deck and Excel financial model are ready to download instantly. Upgrade to the full Investor Deck for a more detailed, buyer-ready presentation.</p>
       </div>
 
       {/* Tabs */}
       <div style={{display:'flex',justifyContent:'center',marginBottom:'28px'}}>
         <div className="tabs">
-          <button className={`tab${tab==='deck'?' active':''}`} onClick={()=>setTab('deck')}>📊 Deck Preview</button>
-          <button className={`tab${tab==='excel'?' active':''}`} onClick={()=>setTab('excel')}>📈 Excel Model — $29.99</button>
-          <button className={`tab${tab==='unlock'?' active':''}`} onClick={()=>setTab('unlock')}>🔓 Unlock & Download</button>
+          <button className={`tab${tab==='deck'?' active':''}`} onClick={()=>setTab('deck')}>📊 Preview Deck</button>
+          <button className={`tab${tab==='excel'?' active':''}`} onClick={()=>setTab('excel')}>📈 Excel Model</button>
+          <button className={`tab${tab==='upgrade'?' active':''}`} onClick={()=>setTab('upgrade')}>🏆 Full Investor Deck</button>
         </div>
       </div>
 
       {/* ── DECK PREVIEW TAB ── */}
       {tab==='deck'&&(
         <div>
-          {/* Large active slide preview */}
-          <div style={{marginBottom:'8px',display:'flex',alignItems:'center',gap:'10px'}}>
-            <span style={{fontSize:'12px',color:'var(--slate)'}}>Viewing: <span style={{color:'var(--gold)',fontWeight:'500'}}>{slides[activeSlide]?.title}</span></span>
-          </div>
+          {/* Large cover slide */}
           <div className="deck-preview">
-            <DeckSlidePreview idx={activeSlide}/>
+            <div className="deck-slide">
+              <div className="watermark"><div className="watermark-text">ExitReady — PREVIEW ONLY<br/>ExitReady — PREVIEW ONLY</div></div>
+              <div style={{position:'relative',zIndex:1}}>
+                <div style={{fontSize:'10px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'10px',textTransform:'uppercase'}}>Confidential Investment Summary</div>
+                <div className="serif" style={{fontSize:'34px',color:'var(--cream)',marginBottom:'6px',lineHeight:'1.1'}}>{formData.bizName||'Your Business'}</div>
+                <div style={{fontSize:'14px',color:'var(--slate)',marginBottom:'20px'}}>{formData.industry||'Industry'} · Est. {formData.founded||'—'} · {formData.location||'—'}</div>
+                <div style={{height:'1px',background:'rgba(201,168,76,0.4)',marginBottom:'20px'}}/>
+                <div style={{display:'flex',gap:'32px',flexWrap:'wrap'}}>
+                  {[['Asking',formData.asking||'TBD'],['Revenue',formData.rev1||'—'],['EBITDA',formData.ebitda1||'—'],['Employees',(formData.employees||'—')+' FT']].map(([l,v])=>(
+                    <div key={l}>
+                      <div style={{fontSize:'10px',color:'var(--slate)',marginBottom:'3px',letterSpacing:'0.04em',textTransform:'uppercase'}}>{l}</div>
+                      <div style={{fontSize:'18px',fontWeight:'600',color:'var(--gold)'}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* 8-slide thumbnail strip — 5 visible, 3 locked */}
+          {/* 8-slide thumbnail strip */}
           <div style={{marginTop:'16px',marginBottom:'8px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span style={{fontSize:'12px',color:'var(--slate)'}}>All 8 slides — <span style={{color:'var(--green)'}}>5 unlocked for preview</span> · <span style={{color:'var(--red)'}}>3 locked</span></span>
+            <span style={{fontSize:'12px',color:'var(--slate)'}}>All 8 slides — <span style={{color:'var(--green)'}}>free preview included</span></span>
             <span style={{fontSize:'12px',color:'var(--slate)'}}>8 slides total</span>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'8px'}}>
             {slides.slice(0,4).map((s,i)=>(
-              <div key={i} className={`slide-thumb-wrap${activeSlide===i?' active':''}`} onClick={()=>setActiveSlide(i)}>
-                <SlideThumb title={s.title} locked={s.locked}>{s.content}</SlideThumb>
-              </div>
+              <SlideThumb key={i} title={s.title} locked={s.locked}>{s.content}</SlideThumb>
             ))}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px'}}>
             {slides.slice(4,8).map((s,i)=>(
-              <div key={i+4} className={`slide-thumb-wrap${activeSlide===i+4?' active':''}`} onClick={()=>setActiveSlide(i+4)}>
-                <SlideThumb title={s.title} locked={s.locked}>{s.content}</SlideThumb>
-              </div>
+              <SlideThumb key={i+4} title={s.title} locked={s.locked}>{s.content}</SlideThumb>
             ))}
           </div>
 
           <div style={{textAlign:'center',marginTop:'24px',display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
-            <button className="btn-ghost" style={{color:'var(--gold)',textDecoration:'underline',fontSize:'13px'}} onClick={()=>generatePDF(formData)}>↓ Download Watermarked Preview (.pdf)</button>
-            <button className="btn-gold" style={{fontSize:'13px',padding:'10px 24px'}} onClick={()=>setTab('unlock')}>Unlock All 8 Slides →</button>
+            <button className="btn-gold" style={{fontSize:'14px',padding:'12px 28px'}} onClick={()=>onDownloadDeck(true)}>↓ Download Free Preview Deck (.pptx)</button>
+            <button className="btn-outline" style={{fontSize:'13px',padding:'10px 24px'}} onClick={()=>setTab('upgrade')}>Get Full Investor Deck →</button>
           </div>
         </div>
       )}
@@ -1853,11 +1289,8 @@ function ResultView({formData,purchases,onPay,user,setView}){
               </p>
             </div>
             <div style={{textAlign:'right',flexShrink:0}}>
-              {purchases.excel
-                ?<button className="btn-gold" style={{padding:'12px 24px'}} onClick={()=>generateExcel(formData)}>↓ Re-Download Excel</button>
-                :<button className="btn-gold" style={{padding:'12px 24px'}} onClick={()=>onPay('excel')}>Buy for $29.99 →</button>
-              }
-              <div style={{fontSize:'11px',color:'var(--slate)',marginTop:'6px'}}>Instant .xlsx download</div>
+              <button className="btn-gold" style={{padding:'12px 24px'}} onClick={onDownloadExcel}>↓ Download Free (.xlsx)</button>
+              <div style={{fontSize:'11px',color:'var(--slate)',marginTop:'6px'}}>Instant free download</div>
             </div>
           </div>
 
@@ -1900,247 +1333,89 @@ function ResultView({formData,purchases,onPay,user,setView}){
             />
           </div>
 
-          <div style={{background:'rgba(201,168,76,0.05)',border:'1px solid rgba(201,168,76,0.2)',borderRadius:'12px',padding:'18px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'16px'}}>
+          <div style={{background:'rgba(82,183,136,0.05)',border:'1px solid rgba(82,183,136,0.2)',borderRadius:'12px',padding:'18px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'16px'}}>
             <div>
               <div style={{fontWeight:'600',fontSize:'15px',color:'var(--cream)',marginBottom:'4px'}}>Ready to download your model?</div>
-              <div style={{fontSize:'13px',color:'var(--slate)'}}>All 4 tabs · Pre-filled with your data · Editable .xlsx format</div>
+              <div style={{fontSize:'13px',color:'var(--slate)'}}>All 4 tabs · Pre-filled with your data · Editable .xlsx format · Free</div>
             </div>
             <div style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}}>
-              <div className="serif" style={{fontSize:'28px',color:'var(--gold)'}}>$29.99</div>
-              {purchases.excel
-                ?<button className="btn-outline" onClick={()=>generateExcel(formData)}>↓ Re-Download</button>
-                :<button className="btn-gold" style={{padding:'12px 24px'}} onClick={()=>onPay('excel')}>Buy Excel Model →</button>
-              }
+              <div className="serif" style={{fontSize:'28px',color:'var(--green)'}}>Free</div>
+              <button className="btn-gold" style={{padding:'12px 24px'}} onClick={onDownloadExcel}>↓ Download Excel →</button>
             </div>
           </div>
 
           <div style={{textAlign:'center',marginTop:'14px'}}>
-            <button className="btn-ghost" style={{fontSize:'13px',color:'var(--gold)'}} onClick={()=>setTab('unlock')}>
-              Or get the Deck + Excel Bundle for $69.99 →
+            <button className="btn-ghost" style={{fontSize:'13px',color:'var(--gold)'}} onClick={()=>setTab('upgrade')}>
+              Upgrade to the full Investor Deck for $49.99 →
             </button>
           </div>
         </div>
       )}
 
-      {/* ── UNLOCK TAB ── */}
-      {tab==='unlock'&&(
+      {/* ── UPGRADE TAB ── */}
+      {tab==='upgrade'&&(
         <div>
-          <div className="upsell-row">
-            <div className="upsell-card">
-              <div className="badge badge-gold" style={{marginBottom:'14px'}}>Most Popular</div>
-              <div className="serif" style={{fontSize:'32px',color:'var(--cream)',marginBottom:'4px'}}>$49.99</div>
-              <div style={{fontSize:'15px',fontWeight:'600',marginBottom:'8px',color:'var(--cream)'}}>Clean Investor Deck</div>
-              <div style={{fontSize:'13px',color:'var(--slate)',marginBottom:'20px',lineHeight:'1.6'}}>All 8 slides, watermark-free. Instant .pptx download. Fully editable.</div>
-              {['No watermark','All 8 slides unlocked','Editable .pptx file','Instant delivery'].map(f=>(
-                <div className="check-row" key={f}><span className="check-icon">✓</span>{f}</div>
-              ))}
-              <div style={{marginTop:'20px'}}>
-                {purchases.deck
-                  ?<button className="btn-outline" style={{width:'100%'}} onClick={()=>generatePPTX(formData,false)}>↓ Re-Download Deck</button>
-                  :<button className="btn-gold" style={{width:'100%',padding:'13px'}} onClick={()=>onPay('deck')}>Pay $49.99 & Download →</button>
-                }
-              </div>
-            </div>
-            <div className="upsell-card" style={{position:'relative'}}>
-              <div style={{position:'absolute',top:'-12px',left:'20px',background:'linear-gradient(135deg,#C9A84C,#E8C97A)',color:'#0D1117',fontSize:'11px',fontWeight:'700',padding:'3px 12px',borderRadius:'20px'}}>BEST VALUE</div>
-              <div className="serif" style={{fontSize:'32px',color:'var(--cream)',marginBottom:'4px',marginTop:'8px'}}>$69.99</div>
-              <div style={{fontSize:'15px',fontWeight:'600',marginBottom:'8px',color:'var(--cream)'}}>Deck + Excel Bundle</div>
-              <div style={{fontSize:'13px',color:'var(--slate)',marginBottom:'20px',lineHeight:'1.6'}}>Clean deck + the full 4-tab Excel model with DCF valuation and deal assumptions.</div>
-              {['Clean 8-slide deck','Full Excel model','DCF valuation tab','Deal assumptions & earnout','Key metrics dashboard'].map(f=>(
-                <div className="check-row" key={f}><span className="check-icon">✓</span>{f}</div>
-              ))}
-              <div style={{marginTop:'20px'}}>
-                {(purchases.deck&&purchases.excel)
-                  ?<button className="btn-outline" style={{width:'100%'}}>✓ Fully Purchased</button>
-                  :<button className="btn-gold" style={{width:'100%',padding:'13px'}} onClick={()=>onPay('bundle')}>Get the Bundle →</button>
-                }
-              </div>
-            </div>
+          <div style={{textAlign:'center',marginBottom:'28px'}}>
+            <div className="badge badge-gold" style={{marginBottom:'12px'}}>Most Popular</div>
+            <h3 className="serif" style={{fontSize:'32px',color:'var(--cream)',marginBottom:'10px'}}>Full Investor Deck — $49.99</h3>
+            <p style={{fontSize:'15px',color:'var(--slate)',maxWidth:'520px',margin:'0 auto',lineHeight:'1.7'}}>A comprehensive, buyer-ready presentation that goes far beyond the free preview — every section expanded, explained, and optimized to close deals.</p>
           </div>
 
-          {/* Excel add-on if deck already bought */}
-          {purchases.deck&&!purchases.excel&&(
-            <div style={{background:'rgba(201,168,76,0.05)',border:'1px solid rgba(201,168,76,0.2)',borderRadius:'12px',padding:'16px 20px',marginTop:'12px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'12px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'24px'}}>
+            {[
+              ['📊','More Detail on Every Slide','Each slide includes deeper context, supporting data points, and buyer-facing explanations — not just raw numbers.'],
+              ['🏷️','Fully Explained Deal Terms','Seller financing, transition period, and deal structure are all written to help buyers understand and engage.'],
+              ['💡','Investment Thesis Section','A compelling "Why Buy This Business" narrative written to speak directly to acquirers and investors.'],
+              ['📋','Next Steps & Contact','A clear call-to-action section with NDA process, intro call, and due diligence roadmap included.'],
+              ['✏️','Fully Editable .pptx','Download and customize every slide in PowerPoint or Google Slides — your branding, your style.'],
+              ['⚡','Instant Download','Delivered immediately — no waiting, no email, no login required after purchase.'],
+            ].map(([icon,title,desc])=>(
+              <div key={title} style={{background:'var(--navy)',border:'1px solid var(--border)',borderRadius:'12px',padding:'16px 18px'}}>
+                <div style={{fontSize:'18px',marginBottom:'8px'}}>{icon}</div>
+                <div style={{fontSize:'13px',fontWeight:'600',color:'var(--cream)',marginBottom:'4px'}}>{title}</div>
+                <div style={{fontSize:'12px',color:'var(--slate)',lineHeight:'1.55'}}>{desc}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{background:'rgba(201,168,76,0.05)',border:'1px solid var(--gold)',borderRadius:'14px',padding:'24px 28px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'16px',marginBottom:'16px'}}>
               <div>
-                <div style={{fontWeight:'600',fontSize:'14px',color:'var(--cream)',marginBottom:'3px'}}>Add the Excel Model</div>
-                <div style={{fontSize:'13px',color:'var(--slate)'}}>You already own the deck — add the financial model for just $29.99</div>
+                <div style={{fontWeight:'700',fontSize:'18px',color:'var(--cream)',marginBottom:'4px'}}>Full Investor Deck</div>
+                <div style={{fontSize:'13px',color:'var(--slate)'}}>One-time purchase · Instant .pptx download · Fully editable</div>
               </div>
-              <button className="btn-gold" style={{padding:'10px 20px',fontSize:'13px'}} onClick={()=>onPay('excel')}>Add Excel — $29.99</button>
+              <div className="serif" style={{fontSize:'40px',color:'var(--gold)'}}>$49.99</div>
             </div>
-          )}
-          <div style={{textAlign:'center',marginTop:'14px',fontSize:'13px',color:'var(--slate)'}}>🔒 Secured by Stripe · Apple Pay & Google Pay accepted · Files delivered instantly</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProfilePage({user,userSubs,onEdit,onNew,onDownloadDeck,onDownloadExcel}){
-  return(
-    <div style={{maxWidth:'860px',margin:'0 auto',padding:'48px 24px'}}>
-      {/* Header */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'start',marginBottom:'40px',flexWrap:'wrap',gap:'16px'}}>
-        <div>
-          <div className="section-label" style={{marginBottom:'6px'}}>Your Account</div>
-          <h2 className="serif" style={{fontSize:'36px',color:'var(--cream)',marginBottom:'6px',letterSpacing:'-0.02em'}}>{user?.name}</h2>
-          <div style={{fontSize:'14px',color:'var(--slate)'}}>{user?.email}{user?.phone&&` · ${user.phone}`}</div>
-        </div>
-        <button className="btn-gold" style={{padding:'12px 26px',fontSize:'14px'}} onClick={onNew}>+ New Submission</button>
-      </div>
-
-      {/* Stats */}
-      {userSubs.length>0&&(
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'16px',marginBottom:'36px'}}>
-          {[['Submissions',userSubs.length],['Decks Purchased',userSubs.filter(s=>s.purchases?.deck).length],['Excel Models',userSubs.filter(s=>s.purchases?.excel).length]].map(([l,n])=>(
-            <div key={l} className="admin-stat"><div className="num">{n}</div><div className="lbl">{l}</div></div>
-          ))}
-        </div>
-      )}
-
-      {/* Submissions label */}
-      <div style={{fontSize:'11px',fontWeight:'600',color:'var(--slate)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:'16px'}}>
-        {userSubs.length>0?`${userSubs.length} Saved Submission${userSubs.length>1?'s':''}` :'Saved Submissions'}
-      </div>
-
-      {userSubs.length===0?(
-        <div className="card" style={{textAlign:'center',padding:'56px 24px'}}>
-          <div style={{fontSize:'44px',marginBottom:'18px'}}>📋</div>
-          <div className="serif" style={{fontSize:'26px',color:'var(--cream)',marginBottom:'10px'}}>No Submissions Yet</div>
-          <p style={{color:'var(--slate)',maxWidth:'380px',margin:'0 auto 28px',lineHeight:'1.75',fontSize:'14px'}}>
-            Complete the intake form to generate your investor deck. Your submissions are saved here for easy re-download and editing.
-          </p>
-          <button className="btn-gold" style={{padding:'13px 32px',fontSize:'15px'}} onClick={onNew}>Start My Submission →</button>
-        </div>
-      ):(
-        <div>
-          {[...userSubs].reverse().map(sub=>(
-            <div key={sub.id} className="profile-sub-card">
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'start',flexWrap:'wrap',gap:'14px'}}>
-                <div style={{flex:1,minWidth:'220px'}}>
-                  <div style={{fontSize:'18px',fontWeight:'600',color:'var(--cream)',marginBottom:'4px'}}>{sub.bizName}</div>
-                  <div style={{fontSize:'13px',color:'var(--slate)',marginBottom:'12px'}}>{sub.industry} · Saved {sub.date}</div>
-                  <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
-                    <span className={`badge ${sub.purchases?.deck?'badge-green':'badge-gold'}`}>
-                      {sub.purchases?.deck?'✓ Investor Deck':'Deck — Not Purchased'}
-                    </span>
-                    <span className={`badge ${sub.purchases?.excel?'badge-green':'badge-gold'}`}>
-                      {sub.purchases?.excel?'✓ Excel Model':'Excel — Not Purchased'}
-                    </span>
-                  </div>
-                </div>
-                <div style={{display:'flex',gap:'8px',flexWrap:'wrap',flexShrink:0,alignItems:'center'}}>
-                  {sub.purchases?.deck&&(
-                    <button className="btn-outline" style={{fontSize:'12px',padding:'8px 14px'}} onClick={()=>onDownloadDeck(sub)}>↓ Deck (.pptx)</button>
-                  )}
-                  {sub.purchases?.excel&&(
-                    <button className="btn-outline" style={{fontSize:'12px',padding:'8px 14px'}} onClick={()=>onDownloadExcel(sub)}>↓ Excel (.xlsx)</button>
-                  )}
-                  <button className="btn-gold" style={{fontSize:'13px',padding:'9px 18px'}} onClick={()=>onEdit(sub)}>✏ Edit & Regenerate</button>
-                </div>
-              </div>
-
-              {/* Key metrics row */}
-              <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--border)',display:'flex',gap:'24px',flexWrap:'wrap'}}>
-                {[['Revenue',sub.formData?.rev1||'—'],['EBITDA',sub.formData?.ebitda1||'—'],['Asking',sub.formData?.asking||'—'],['Employees',sub.formData?.employees||'—']].map(([l,v])=>(
-                  <div key={l}>
-                    <div style={{fontSize:'10px',color:'var(--slate)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'2px'}}>{l}</div>
-                    <div style={{fontSize:'13px',fontWeight:'600',color:'var(--gold)'}}>{v}</div>
-                  </div>
-                ))}
-              </div>
+            <div style={{display:'flex',gap:'16px',flexWrap:'wrap',marginBottom:'20px'}}>
+              {['Free preview included','8 detailed slides','Every section explained','Investment thesis','Deal terms breakdown','Buyer Q&A ready'].map(f=>(
+                <div className="check-row" key={f} style={{margin:0}}><span className="check-icon">✓</span><span style={{fontSize:'13px',color:'var(--slate)'}}>{f}</span></div>
+              ))}
             </div>
-          ))}
+            <button className="btn-gold" style={{width:'100%',padding:'15px',fontSize:'16px'}} onClick={()=>onDownloadDeck(false)}>
+              Download Full Investor Deck →
+            </button>
+            <div style={{textAlign:'center',marginTop:'10px',fontSize:'12px',color:'var(--slate)'}}>Also includes your free preview deck and Excel financial model</div>
+          </div>
+
+          <div style={{textAlign:'center',marginTop:'16px'}}>
+            <button className="btn-ghost" style={{fontSize:'13px',color:'var(--slate)'}} onClick={()=>setTab('deck')}>
+              ← Back to free preview
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function PayModal({product,onConfirm,onClose}){
-  const prices={deck:'$49.99',excel:'$29.99',bundle:'$69.99'};
-  const labels={deck:'Clean Investor Deck',excel:'Excel Financial Model',bundle:'Deck + Excel Bundle'};
-  const [processing,setProcessing]=useState(false);
-  const [cardNum,setCardNum]=useState('');
-  const [expiry,setExpiry]=useState('');
-  const [cvc,setCvc]=useState('');
-  const [cardName,setCardName]=useState('');
-
-  const handlePay=()=>{
-    setProcessing(true);
-    // In production: loadStripe('YOUR_PUBLISHABLE_KEY') and confirm PaymentIntent here
-    setTimeout(()=>{setProcessing(false);onConfirm();},2200);
-  };
-
-  return(
-    <div className="payment-modal" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
-      <div className="payment-box">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
-          <h3 className="serif" style={{fontSize:'26px',color:'var(--cream)'}}>Secure Checkout</h3>
-          <button className="btn-ghost" style={{fontSize:'22px',lineHeight:1,padding:'4px 8px'}} onClick={onClose}>×</button>
-        </div>
-        <div style={{background:'var(--navy)',borderRadius:'10px',padding:'14px 18px',marginBottom:'22px',display:'flex',justifyContent:'space-between',alignItems:'center',border:'1px solid var(--border)'}}>
-          <span style={{fontSize:'14px',color:'var(--slate)'}}>{labels[product]}</span>
-          <span className="serif" style={{fontSize:'22px',color:'var(--gold)'}}>{prices[product]}</span>
-        </div>
-        <div className="field-group"><label>Card Number</label>
-          <input placeholder="4242 4242 4242 4242" value={cardNum} onChange={e=>setCardNum(e.target.value)} style={{letterSpacing:'1px'}}/>
-        </div>
-        <div className="form-row">
-          <div className="field-group"><label>Expiry</label><input placeholder="MM / YY" value={expiry} onChange={e=>setExpiry(e.target.value)}/></div>
-          <div className="field-group"><label>CVC</label><input placeholder="123" value={cvc} onChange={e=>setCvc(e.target.value)}/></div>
-        </div>
-        <div className="field-group"><label>Name on Card</label>
-          <input placeholder="Full name" value={cardName} onChange={e=>setCardName(e.target.value)}/>
-        </div>
-        <button className="pay-btn pay-stripe" disabled={processing} onClick={handlePay} style={{marginTop:'8px'}}>
-          {processing?'Processing payment...':`Pay ${prices[product]} — Download Instantly`}
-        </button>
-        <button className="pay-btn pay-apple" onClick={handlePay} disabled={processing}>
-          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M17.05 12.536c-.02-2.069 1.694-3.072 1.771-3.119-1.3-1.65-3.044-1.647-3.115-1.657-.817-.068-1.6.471-2.014.471-.425 0-1.062-.467-1.749-.453-1.294.017-2.496.765-3.16 1.928-1.357 2.346-.347 5.796.97 7.694.651.937 1.417 1.98 2.427 1.945.98-.04 1.347-.626 2.53-.626 1.173 0 1.517.626 2.535.605 1.044-.018 1.7-.938 2.33-1.88.74-1.07 1.043-2.11 1.059-2.164-.024-.01-2.087-.801-2.108-3.052l.024.308zm-1.975-5.618c.523-.641.877-1.52.78-2.41-.754.03-1.674.5-2.218 1.134-.48.558-.904 1.457-.793 2.317.845.067 1.704-.434 2.231-1.041z"/></svg>
-          Pay with Apple Pay
-        </button>
-        <div style={{textAlign:'center',fontSize:'12px',color:'var(--slate)',marginTop:'14px',lineHeight:'1.7'}}>🔒 256-bit SSL · Powered by Stripe · Files delivered instantly</div>
-      </div>
-    </div>
-  );
-}
 
 function AdminDash({adminTab,setAdminTab,submissions,setSubmissions,selectedSub,setSelectedSub}){
   const [filter,setFilter]=useState('All');
-  const [industryFilter,setIndustryFilter]=useState('All');
-  const [purchaseFilter,setPurchaseFilter]=useState('All');
   const STATUSES=['All','New','Contacted','In Diligence','Passed','Closed'];
-  const industries=['All',...[...new Set(submissions.map(s=>s.industry).filter(Boolean))]];
-
-  const filtered=submissions.filter(s=>{
-    if(filter!=='All'&&s.status!==filter)return false;
-    if(industryFilter!=='All'&&s.industry!==industryFilter)return false;
-    if(purchaseFilter==='Deck Paid'&&!s.deckPaid)return false;
-    if(purchaseFilter==='Excel Paid'&&!s.excelPaid)return false;
-    if(purchaseFilter==='Any Paid'&&!s.deckPaid&&!s.excelPaid)return false;
-    if(purchaseFilter==='Free Only'&&(s.deckPaid||s.excelPaid))return false;
-    return true;
-  });
-
+  const filtered=filter==='All'?submissions:submissions.filter(s=>s.status===filter);
   const totalRevenue=submissions.reduce((acc,s)=>{if(s.deckPaid)acc+=49.99;if(s.excelPaid)acc+=29.99;return acc;},0);
   const paidCount=submissions.filter(s=>s.deckPaid||s.excelPaid).length;
   const STATUS_COLORS={New:'var(--gold)',Contacted:'var(--green)','In Diligence':'#6BAEE8',Passed:'var(--red)',Closed:'var(--slate)'};
-
-  const exportToExcel=()=>{
-    if(typeof XLSX==='undefined'){alert('XLSX library not loaded.');return;}
-    const rows=[
-      ['Business Name','Owner','Email','Phone','Industry','Revenue (Yr1)','Asking Price','Date Submitted','Deck Purchased','Excel Purchased','Status','Notes'],
-      ...submissions.map(s=>[
-        s.bizName,s.owner,s.email,s.phone,s.industry,s.rev1,s.asking,s.date,
-        s.deckPaid?'Yes':'No',s.excelPaid?'Yes':'No',s.status||'New',s.notes||'',
-      ]),
-    ];
-    const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:28},{wch:20},{wch:28},{wch:16},{wch:20},{wch:14},{wch:14},{wch:14},{wch:12},{wch:12},{wch:14},{wch:30}];
-    const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,'Submissions',ws);
-    XLSX.writeFile(wb,'ExitReady_Submissions.xlsx');
-  };
 
   const updateStatus=(id,status)=>{
     setSubmissions(subs=>subs.map(s=>s.id===id?{...s,status}:s));
@@ -2168,7 +1443,7 @@ function AdminDash({adminTab,setAdminTab,submissions,setSubmissions,selectedSub,
       {adminTab==='dashboard'&&(
         <div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'14px',marginBottom:'28px'}}>
-            {[['Total Submissions',submissions.length],['Paid Downloads',paidCount],['Conversion Rate',submissions.length?Math.round(paidCount/submissions.length*100)+'%':'0%'],['Total Revenue','$'+totalRevenue.toFixed(0)]].map(([l,n])=>(
+            {[['Total Submissions',submissions.length],['Paid Downloads',paidCount],['Conversion Rate',Math.round(paidCount/submissions.length*100)+'%'],['Total Revenue','$'+totalRevenue.toFixed(0)]].map(([l,n])=>(
               <div className="admin-stat" key={l}><div className="num">{n}</div><div className="lbl">{l}</div></div>
             ))}
           </div>
@@ -2177,7 +1452,7 @@ function AdminDash({adminTab,setAdminTab,submissions,setSubmissions,selectedSub,
               <div style={{fontWeight:'600',marginBottom:'18px',fontSize:'14px',color:'var(--cream)'}}>Pipeline by Status</div>
               {['New','Contacted','In Diligence','Passed','Closed'].map(s=>{
                 const count=submissions.filter(x=>x.status===s).length;
-                const pct=submissions.length?Math.round(count/submissions.length*100):0;
+                const pct=Math.round(count/submissions.length*100);
                 return(
                   <div key={s} style={{marginBottom:'12px'}}>
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'5px'}}>
@@ -2208,24 +1483,13 @@ function AdminDash({adminTab,setAdminTab,submissions,setSubmissions,selectedSub,
 
       {adminTab==='submissions'&&(
         <div>
-          {/* Status filters */}
-          <div style={{display:'flex',gap:'8px',marginBottom:'12px',flexWrap:'wrap',alignItems:'center'}}>
+          <div style={{display:'flex',gap:'8px',marginBottom:'20px',flexWrap:'wrap',alignItems:'center'}}>
             {STATUSES.map(s=>(
               <button key={s} className={`tab${filter===s?' active':''}`} onClick={()=>setFilter(s)}>
                 {s} ({s==='All'?submissions.length:submissions.filter(x=>x.status===s).length})
               </button>
             ))}
-          </div>
-          {/* Industry + purchase filters + export */}
-          <div style={{display:'flex',gap:'8px',marginBottom:'20px',flexWrap:'wrap',alignItems:'center'}}>
-            <select value={industryFilter} onChange={e=>setIndustryFilter(e.target.value)} style={{width:'auto',padding:'6px 10px',fontSize:'12px'}}>
-              {industries.map(i=><option key={i} value={i}>{i==='All'?'All Industries':i}</option>)}
-            </select>
-            <select value={purchaseFilter} onChange={e=>setPurchaseFilter(e.target.value)} style={{width:'auto',padding:'6px 10px',fontSize:'12px'}}>
-              {['All','Any Paid','Deck Paid','Excel Paid','Free Only'].map(p=><option key={p}>{p}</option>)}
-            </select>
-            <span style={{fontSize:'12px',color:'var(--slate)',marginLeft:'4px'}}>{filtered.length} result{filtered.length!==1?'s':''}</span>
-            <button className="btn-gold" style={{marginLeft:'auto',fontSize:'12px',padding:'7px 16px'}} onClick={exportToExcel}>↓ Export to Excel</button>
+            <button className="btn-outline" style={{marginLeft:'auto',fontSize:'12px',padding:'7px 14px'}}>Export CSV</button>
           </div>
           <div className="card" style={{padding:0,overflow:'hidden'}}>
             <div style={{overflowX:'auto'}}>
