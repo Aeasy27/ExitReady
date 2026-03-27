@@ -158,6 +158,7 @@ input[type=range]:focus{box-shadow:none;border:none}
 .tip-wrap{position:relative;display:inline-flex;align-items:center;cursor:help;vertical-align:middle;margin-left:4px}
 .tip-icon{width:15px;height:15px;border-radius:50%;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'DM Sans',sans-serif;font-style:normal;line-height:1}
 .tip-box{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:290px;background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:13px 15px;font-size:12px;color:var(--cream);line-height:1.65;z-index:999;font-weight:400;text-transform:none;letter-spacing:0;box-shadow:0 8px 28px rgba(0,0,0,0.5)}
+.tip-box::after{content:'';position:absolute;bottom:-10px;left:0;right:0;height:10px}
 .tip-box a{color:var(--gold);text-decoration:none;display:inline-block;margin-top:8px;font-size:11px}
 .tip-box a:hover{text-decoration:underline}
 .tip-wrap:hover .tip-box{display:block}
@@ -166,7 +167,7 @@ input[type=range]:focus{box-shadow:none;border:none}
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState, useCallback} = React;
+const {useState, useCallback, useEffect} = React;
 
 /* ── Constants ─────────────────────────────────────────── */
 const INDUSTRIES = [
@@ -178,9 +179,24 @@ const INDUSTRIES = [
 
 const STEP_LABELS = ['Overview','Financials','Operations','Market','Deal Terms','Contact','Review'];
 
+const US_STATES = [
+  '','Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut',
+  'Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa',
+  'Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan',
+  'Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire',
+  'New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio',
+  'Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota',
+  'Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia',
+  'Wisconsin','Wyoming','District of Columbia'
+];
+
+const fmtCurrency=v=>{if(!v&&v!==0)return v;const n=parseFloat(String(v).replace(/[$,\s]/g,''));if(isNaN(n))return v;return '$'+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});};
+const fmtNumber=v=>{if(!v&&v!==0)return v;const n=parseInt(String(v).replace(/,/g,''));if(isNaN(n))return v;return n.toLocaleString('en-US');};
+const loc=d=>[d.location,d.locationState].filter(Boolean).join(', ');
+
 const EMPTY_FORM = {
   bizName:'',dba:'',industry:INDUSTRIES[0],description:'',founded:'',
-  employees:'',empPT:'',structure:'LLC',state:'',location:'',website:'',social:'',
+  employees:'',empPT:'',structure:'LLC',state:'',location:'',locationState:'',website:'',social:'',
   rev1:'',rev2:'',rev3:'',ebitda1:'',ebitda2:'',ebitda3:'',
   grossMargin:'',mrr:'',revStream1:'',revStream2:'',revStream3:'',
   hasDebts:'No',hasAudited:'No',ndaOk:'Yes',asking:'',valJustification:'',
@@ -272,7 +288,7 @@ function generatePPTX(data, watermark){
   s1.addShape(pptx.ShapeType.rect,{x:0,y:0,w:0.06,h:'100%',fill:{color:GOLD}});
   s1.addText('CONFIDENTIAL INVESTMENT SUMMARY',{x:0.5,y:0.38,w:9,h:0.3,fontSize:9,color:GOLD,bold:true,charSpacing:4});
   s1.addText(data.bizName||'Your Business',{x:0.5,y:0.8,w:9,h:1.4,fontSize:48,color:CREAM,fontFace:'Georgia'});
-  s1.addText(`${data.industry||'Industry'}  ·  Est. ${data.founded||'—'}  ·  ${data.location||'—'}`,{x:0.5,y:2.2,w:9,h:0.4,fontSize:14,color:SLATE});
+  s1.addText(`${data.industry||'Industry'}  ·  Est. ${data.founded||'—'}  ·  ${loc(data)||'—'}`,{x:0.5,y:2.2,w:9,h:0.4,fontSize:14,color:SLATE});
   s1.addShape(pptx.ShapeType.rect,{x:0.5,y:2.75,w:8.5,h:0.02,fill:{color:GOLD}});
   [['Asking Price',data.asking||'TBD'],['Revenue (TTM)',data.rev1||'—'],['EBITDA (TTM)',data.ebitda1||'—'],['Employees',(data.employees||'—')+' FT']].forEach(([l,v],i)=>{
     const x=0.5+i*2.3;
@@ -293,7 +309,7 @@ function generatePPTX(data, watermark){
     `Revenue: ${data.rev1||'—'} (TTM)  |  Gross Margin: ${data.grossMargin||'—'}  |  EBITDA: ${data.ebitda1||'—'}`,
     `Team: ${data.employees||'—'} FT employees  |  Owner Dependency: ${data.ownerDep||'—'}/5`,
     `Customers: ${data.activeCust||'—'} active clients  |  Avg. relationship: ${data.avgContract||'—'}`,
-    `Structure: ${data.structure||'—'}  |  Founded: ${data.founded||'—'}  |  Location: ${data.location||'—'}`,
+    `Structure: ${data.structure||'—'}  |  Founded: ${data.founded||'—'}  |  Location: ${loc(data)||'—'}`,
     `Deal: ${data.asking||'—'}  |  ${data.dealStruct||'—'}  |  Close in ${data.timeline||'—'}`,
   ].forEach((b,i)=>{
     s2.addText([{text:'▸ ',options:{color:GOLD}},{text:b,options:{color:i===0?CREAM:SLATE}}],
@@ -580,6 +596,7 @@ function App(){
   const [submissions,setSubmissions]=useState(SAMPLE_SUBMISSIONS);
 
   const notify=msg=>{setNotification(msg);setTimeout(()=>setNotification(null),3800)};
+  useEffect(()=>{window.scrollTo({top:0,behavior:'instant'});}, [view]);
 
   const handleDownloadDeck=(watermark)=>{generatePPTX(formData,watermark);notify(watermark?'✓ Preview deck downloaded!':'✓ Investor deck downloaded!');};
   const handleDownloadExcel=()=>{generateExcel(formData);notify('✓ Excel model downloaded!');};
@@ -644,6 +661,12 @@ function Landing({setView}){
           </div>
         ))}
       </div>
+      <div style={{background:'linear-gradient(135deg,rgba(201,168,76,0.06),rgba(201,168,76,0.02))',borderTop:'1px solid rgba(201,168,76,0.15)',borderBottom:'1px solid rgba(201,168,76,0.15)',padding:'60px 48px',textAlign:'center',margin:'0'}}>
+        <div className="section-label" style={{marginBottom:'12px'}}>Built for Main Street, Not Wall Street</div>
+        <div className="section-title" style={{marginBottom:'16px',maxWidth:'600px',margin:'0 auto 16px'}}>Stop Leaving Money on the Table</div>
+        <p style={{color:'var(--slate)',fontSize:'16px',lineHeight:'1.75',maxWidth:'540px',margin:'0 auto 32px'}}>Business brokers charge 10–12% commission. ExitReady gives you the same professional materials for a flat fee — and you keep every dollar of your sale.</p>
+        <button className="btn-gold" style={{fontSize:'15px',padding:'14px 36px'}} onClick={()=>setView('auth')}>Create My Free Account →</button>
+      </div>
       <div className="how-section">
         <div style={{textAlign:'center',marginBottom:'40px'}}>
           <div className="section-label">How It Works</div>
@@ -662,6 +685,103 @@ function Landing({setView}){
               <p style={{fontSize:'13px',color:'var(--slate)',lineHeight:'1.65'}}>{desc}</p>
             </div>
           ))}
+        </div>
+      </div>
+      {/* Sample Outputs Section */}
+      <div style={{maxWidth:'960px',margin:'0 auto',padding:'0 48px 80px'}}>
+        <div style={{textAlign:'center',marginBottom:'44px'}}>
+          <div className="section-label">Live Example</div>
+          <div className="section-title">See What Buyers Will Receive</div>
+          <p style={{color:'var(--slate)',maxWidth:'520px',margin:'0 auto',fontSize:'15px',lineHeight:'1.7'}}>Every ExitReady submission generates a professional investor deck and financial model — here's a real example from Sunrise HVAC Services.</p>
+        </div>
+
+        {/* 3 sample slide thumbnails */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'12px',marginBottom:'32px'}}>
+          {/* Cover Slide */}
+          <div style={{background:'#0D1117',border:'1px solid rgba(201,168,76,0.5)',borderRadius:'12px',overflow:'hidden',aspectRatio:'16/9',position:'relative',display:'flex',flexDirection:'column',justifyContent:'center',boxShadow:'0 8px 32px rgba(0,0,0,0.5)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:'5px',background:'#C9A84C'}}/>
+            <div style={{padding:'14px 14px 14px 20px'}}>
+              <div style={{fontSize:'6px',fontWeight:'700',color:'#C9A84C',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'5px'}}>Confidential Investment Summary</div>
+              <div style={{fontFamily:'Georgia,serif',fontSize:'16px',color:'#E8E4DC',lineHeight:1.1,marginBottom:'5px'}}>Sunrise HVAC<br/>Services LLC</div>
+              <div style={{fontSize:'7px',color:'#8A9BB0',marginBottom:'8px'}}>Home Services · Est. 2015 · Phoenix, AZ</div>
+              <div style={{height:'1px',background:'rgba(201,168,76,0.35)',marginBottom:'8px'}}/>
+              <div style={{display:'flex',gap:'10px'}}>
+                {[['Ask','$850K'],['Revenue','$580K'],['EBITDA','$142K'],['Staff','14 FT']].map(([l,v])=>(
+                  <div key={l}><div style={{fontSize:'5px',color:'#8A9BB0',textTransform:'uppercase',letterSpacing:'0.04em'}}>{l}</div><div style={{fontSize:'9px',fontWeight:'700',color:'#C9A84C'}}>{v}</div></div>
+                ))}
+              </div>
+            </div>
+            <div style={{position:'absolute',bottom:'6px',right:'8px',fontSize:'6px',color:'rgba(138,155,176,0.5)'}}>Slide 1 of 8 · ExitReady</div>
+          </div>
+
+          {/* Financial Highlights Slide */}
+          <div style={{background:'#0D1117',border:'1px solid var(--border)',borderRadius:'12px',overflow:'hidden',aspectRatio:'16/9',position:'relative',display:'flex',flexDirection:'column',justifyContent:'center',boxShadow:'0 8px 32px rgba(0,0,0,0.5)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:'5px',background:'#C9A84C'}}/>
+            <div style={{padding:'12px 12px 12px 18px'}}>
+              <div style={{fontSize:'6px',fontWeight:'700',color:'#C9A84C',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:'4px'}}>Financial Highlights</div>
+              <div style={{fontFamily:'Georgia,serif',fontSize:'11px',color:'#E8E4DC',marginBottom:'8px'}}>3-Year Performance</div>
+              <div style={{display:'grid',gridTemplateColumns:'1.4fr 1fr 1fr 1fr',gap:'2px',marginBottom:'6px'}}>
+                {['Metric','2022','2023','2024'].map(h=><div key={h} style={{fontSize:'5px',fontWeight:'700',color:'#C9A84C',padding:'2px 3px',background:'rgba(26,37,53,0.9)',textAlign:'center'}}>{h}</div>)}
+                {['Revenue','$415K','$498K','$580K'].map((c,i)=><div key={i} style={{fontSize:'6px',color:i===0?'#8A9BB0':'#E8E4DC',padding:'2px 3px',background:'rgba(13,17,23,0.7)',textAlign:'center',fontWeight:i===3?'700':'400'}}>{c}</div>)}
+                {['EBITDA','$88K','$118K','$142K'].map((c,i)=><div key={i} style={{fontSize:'6px',color:i===0?'#8A9BB0':'#C9A84C',padding:'2px 3px',background:'rgba(20,28,38,0.7)',textAlign:'center',fontWeight:'600'}}>{c}</div>)}
+                {['Margin','21%','24%','24%'].map((c,i)=><div key={i} style={{fontSize:'6px',color:i===0?'#8A9BB0':'#E8E4DC',padding:'2px 3px',background:'rgba(13,17,23,0.7)',textAlign:'center'}}>{c}</div>)}
+              </div>
+              <div style={{display:'flex',gap:'3px',alignItems:'flex-end',height:'18px'}}>
+                {[30,45,60,72,85].map((h,i)=><div key={i} style={{flex:1,background:i===4?'#C9A84C':'rgba(201,168,76,0.3)',height:`${h}%`,borderRadius:'2px 2px 0 0'}}/>)}
+              </div>
+            </div>
+            <div style={{position:'absolute',bottom:'6px',right:'8px',fontSize:'6px',color:'rgba(138,155,176,0.5)'}}>Slide 3 of 8 · ExitReady</div>
+          </div>
+
+          {/* Deal Terms Slide */}
+          <div style={{background:'#0D1117',border:'1px solid var(--border)',borderRadius:'12px',overflow:'hidden',aspectRatio:'16/9',position:'relative',display:'flex',flexDirection:'column',justifyContent:'center',boxShadow:'0 8px 32px rgba(0,0,0,0.5)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:'5px',background:'#C9A84C'}}/>
+            <div style={{padding:'12px 12px 12px 18px'}}>
+              <div style={{fontSize:'6px',fontWeight:'700',color:'#C9A84C',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:'4px'}}>Deal Structure & Terms</div>
+              <div style={{fontFamily:'Georgia,serif',fontSize:'11px',color:'#E8E4DC',marginBottom:'8px'}}>Transaction Overview</div>
+              {[['Asking Price','$850,000'],['Structure','Asset Sale'],['Seller Financing','Yes — 15% note'],['Transition','6 months included'],['Target Close','Q3 2026'],['Reason','Retirement']].map(([k,v],i)=>(
+                <div key={k} style={{display:'flex',justifyContent:'space-between',borderBottom:'1px solid rgba(30,46,66,0.6)',padding:'2px 0',marginBottom:'1px'}}>
+                  <span style={{fontSize:'6px',color:'#8A9BB0'}}>{k}</span>
+                  <span style={{fontSize:'6px',fontWeight:'600',color:i===0?'#C9A84C':'#E8E4DC'}}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{position:'absolute',bottom:'6px',right:'8px',fontSize:'6px',color:'rgba(138,155,176,0.5)'}}>Slide 6 of 8 · ExitReady</div>
+          </div>
+        </div>
+
+        {/* Label under slides */}
+        <div style={{textAlign:'center',marginBottom:'40px'}}>
+          <span className="badge badge-green" style={{marginRight:'8px'}}>↑ Actual ExitReady Output</span>
+          <span style={{fontSize:'13px',color:'var(--slate)'}}>Generated in under 3 minutes from the intake form</span>
+        </div>
+
+        {/* Excel preview strip */}
+        <div style={{background:'#1A2535',border:'1px solid var(--border)',borderRadius:'14px',overflow:'hidden'}}>
+          <div style={{background:'rgba(201,168,76,0.06)',borderBottom:'1px solid rgba(201,168,76,0.15)',padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div>
+              <div style={{fontSize:'13px',fontWeight:'600',color:'var(--cream)',marginBottom:'2px'}}>📊 Excel Financial Model — Pre-populated with your data</div>
+              <div style={{fontSize:'12px',color:'var(--slate)'}}>4 tabs: Income Statement · DCF Valuation · Deal Assumptions · Key Metrics</div>
+            </div>
+            <div className="badge badge-gold">Free Download</div>
+          </div>
+          <div style={{padding:'16px 20px',display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'12px'}}>
+            {[
+              ['Income Statement','$580K revenue · 3-yr actuals + 2-yr projections','#217346'],
+              ['DCF Valuation','12% WACC · $850K implied enterprise value','#1a5c38'],
+              ['Deal Assumptions','Asset sale · $127K seller note · 6-mo transition','#145029'],
+              ['Key Metrics','EBITDA 24% · Revenue 2.7x EBITDA multiple · 14 FT','#0d3d1e'],
+            ].map(([title,desc,bg])=>(
+              <div key={title} style={{background:bg,borderRadius:'8px',padding:'10px 12px',border:'1px solid rgba(255,255,255,0.08)'}}>
+                <div style={{fontSize:'11px',fontWeight:'700',color:'#4ade80',marginBottom:'4px'}}>{title}</div>
+                <div style={{fontSize:'10px',color:'rgba(255,255,255,0.6)',lineHeight:'1.4'}}>{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{borderTop:'1px solid rgba(30,46,66,0.5)',padding:'10px 20px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:'11px',color:'var(--slate)'}}>SunriseHVAC_FinancialModel.xlsx · 42KB · Fully editable</span>
+            <span style={{fontSize:'11px',color:'var(--green)',fontWeight:'600'}}>✓ Instant free download after form completion</span>
+          </div>
         </div>
       </div>
       <div className="pricing-section">
@@ -688,6 +808,17 @@ function Landing({setView}){
             ))}
           </div>
         </div>
+      </div>
+      {/* Bottom CTA */}
+      <div style={{background:'var(--navy2)',borderTop:'1px solid var(--border)',padding:'80px 48px',textAlign:'center'}}>
+        <div className="badge badge-gold" style={{marginBottom:'20px'}}>No Broker. No Commission. No Waiting.</div>
+        <div className="section-title" style={{fontSize:'44px',marginBottom:'16px'}}>Ready to List Your Business?</div>
+        <p style={{color:'var(--slate)',fontSize:'17px',lineHeight:'1.75',maxWidth:'520px',margin:'0 auto 36px'}}>Join 500+ business owners who've used ExitReady to package their business professionally — and get in front of serious buyers faster.</p>
+        <div style={{display:'flex',gap:'16px',justifyContent:'center',flexWrap:'wrap'}}>
+          <button className="btn-gold" style={{fontSize:'16px',padding:'16px 40px'}} onClick={()=>setView('auth')}>Get My Free Preview Deck →</button>
+          <button className="btn-outline" style={{fontSize:'15px',padding:'15px 32px'}} onClick={()=>setView('auth')}>See Pricing</button>
+        </div>
+        <div style={{marginTop:'24px',fontSize:'13px',color:'var(--slate)'}}>Free to start · 8-page preview deck included · Full deck from $49.99</div>
       </div>
     </div>
   );
@@ -816,9 +947,10 @@ function IntakeForm({user,onDone}){
             <Field label="Full-Time Employees" tip="The number of employees who work 35+ hours per week. Headcount is a key operational metric buyers use to assess infrastructure, labor costs, and scalability." value={data.employees} onChange={e=>set('employees',e.target.value)} placeholder="12"/>
             <Field label="Part-Time Employees" tip="Employees working fewer than 35 hours per week on a regular basis. Include consistent part-timers but generally exclude independent contractors or one-off freelancers unless they are integral to daily operations." value={data.empPT} onChange={e=>set('empPT',e.target.value)} placeholder="4"/>
           </div>
+          <SelectField label="State of Incorporation" tip="The U.S. state where your business was legally formed — not necessarily where you operate. Delaware and Wyoming are common choices for favorable tax and liability laws, but most small businesses are incorporated in their home state." value={data.state} onChange={v=>set('state',v)} opts={US_STATES}/>
           <div className="form-row">
-            <Field label="State of Incorporation" tip="The U.S. state where your business was legally formed — not necessarily where you operate. Delaware and Wyoming are common choices for favorable tax and liability laws, but most small businesses are incorporated in their home state." value={data.state} onChange={e=>set('state',e.target.value)} placeholder="Delaware"/>
-            <Field label="Primary Operating Location" tip="The city and state where your business primarily operates day-to-day. Location affects your customer base, labor market, tax obligations, and the pool of potential buyers who may be interested." value={data.location} onChange={e=>set('location',e.target.value)} placeholder="Austin, TX"/>
+            <Field label="Primary City / Location" tip="The city where your business primarily operates day-to-day." value={data.location} onChange={e=>set('location',e.target.value)} placeholder="Austin"/>
+            <SelectField label="Operating State" tip="The U.S. state where your business primarily operates." value={data.locationState} onChange={v=>set('locationState',v)} opts={US_STATES}/>
           </div>
           <Field label="Website URL" tip="Your business's primary website URL. Buyers will visit it to independently evaluate your brand, product quality, customer reviews, and online presence before engaging further." value={data.website} onChange={e=>set('website',e.target.value)} placeholder="https://yourcompany.com"/>
           <Field label="Social Media Handles (optional)" tip="Links or handles for your business's social media accounts (Instagram, LinkedIn, Facebook, TikTok, etc.). A meaningful social following or engaged community can be a valuable asset that contributes to overall business value." value={data.social} onChange={e=>set('social',e.target.value)} placeholder="@yourcompany"/>
@@ -961,8 +1093,8 @@ function IntakeForm({user,onDone}){
           <div className="step-header"><h2>Review & Submit</h2><p>Confirm your information before we generate your investor deck.</p></div>
           <div className="card" style={{marginBottom:'16px'}}>
             {[
-              {title:'Business Overview',rows:[['Business Name',data.bizName||'—'],['Industry',data.industry],['Founded',data.founded||'—'],['Location',data.location||'—'],['Employees',`${data.employees||'—'} FT${data.empPT?` · ${data.empPT} PT`:''}`]]},
-              {title:'Financials',rows:[['Revenue (Yr 1)',data.rev1||'—'],['EBITDA (Yr 1)',data.ebitda1||'—'],['Gross Margin',data.grossMargin||'—'],['Asking Price',data.asking||'—']]},
+              {title:'Business Overview',rows:[['Business Name',data.bizName||'—'],['Industry',data.industry],['Founded',data.founded||'—'],['Location',loc(data)||'—'],['Employees',`${data.employees?fmtNumber(data.employees):'—'} FT${data.empPT?` · ${fmtNumber(data.empPT)} PT`:''}`]]},
+              {title:'Financials',rows:[['Revenue (Yr 1)',fmtCurrency(data.rev1)||'—'],['EBITDA (Yr 1)',fmtCurrency(data.ebitda1)||'—'],['Gross Margin',data.grossMargin||'—'],['Asking Price',fmtCurrency(data.asking)||'—']]},
               {title:'Deal Terms',rows:[['Why Selling',data.whySelling||'—'],['Timeline',data.timeline],['Structure',data.dealStruct],['Seller Financing',data.sellerFinancing]]},
               {title:'Contact',rows:[['Name',data.ownerName||'—'],['Email',data.ownerEmail||'—'],['Phone',data.ownerPhone||'—']]},
             ].map(({title,rows},si)=>(
@@ -981,9 +1113,9 @@ function IntakeForm({user,onDone}){
 
       {/* Nav */}
       <div className="nav-btns">
-        {step>0?<button className="btn-outline" onClick={()=>setStep(s=>s-1)}>← Back</button>:<div/>}
+        {step>0?<button className="btn-outline" onClick={()=>{setStep(s=>s-1);window.scrollTo({top:0,behavior:'instant'});}}>← Back</button>:<div/>}
         {step<STEP_LABELS.length-1
-          ?<button className="btn-gold" onClick={()=>setStep(s=>s+1)}>Continue →</button>
+          ?<button className="btn-gold" onClick={()=>{setStep(s=>s+1);window.scrollTo({top:0,behavior:'instant'});}}>Continue →</button>
           :<button className="btn-gold" style={{padding:'13px 36px',fontSize:'15px'}} onClick={()=>onDone(data)}>Generate My Deck 🚀</button>
         }
       </div>
@@ -1241,7 +1373,7 @@ function ResultView({formData,onDownloadDeck,onDownloadExcel}){
               <div style={{position:'relative',zIndex:1}}>
                 <div style={{fontSize:'10px',fontWeight:'700',letterSpacing:'0.12em',color:'var(--gold)',marginBottom:'10px',textTransform:'uppercase'}}>Confidential Investment Summary</div>
                 <div className="serif" style={{fontSize:'34px',color:'var(--cream)',marginBottom:'6px',lineHeight:'1.1'}}>{formData.bizName||'Your Business'}</div>
-                <div style={{fontSize:'14px',color:'var(--slate)',marginBottom:'20px'}}>{formData.industry||'Industry'} · Est. {formData.founded||'—'} · {formData.location||'—'}</div>
+                <div style={{fontSize:'14px',color:'var(--slate)',marginBottom:'20px'}}>{formData.industry||'Industry'} · Est. {formData.founded||'—'} · {loc(formData)||'—'}</div>
                 <div style={{height:'1px',background:'rgba(201,168,76,0.4)',marginBottom:'20px'}}/>
                 <div style={{display:'flex',gap:'32px',flexWrap:'wrap'}}>
                   {[['Asking',formData.asking||'TBD'],['Revenue',formData.rev1||'—'],['EBITDA',formData.ebitda1||'—'],['Employees',(formData.employees||'—')+' FT']].map(([l,v])=>(
